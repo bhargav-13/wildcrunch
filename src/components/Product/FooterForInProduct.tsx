@@ -1,5 +1,5 @@
 
-import LogoWC from "../../assets/LogoWC.png";
+import LogoWC from "../../assets/logowc.png";
 import { Instagram, Linkedin, Twitter } from "lucide-react";
 
 const Footer = () => {

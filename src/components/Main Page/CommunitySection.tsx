@@ -1,6 +1,6 @@
 import React from "react";
 import { ArrowUpRight } from "lucide-react";
-import CommunityBG from "@/assets/CommunityBG.png"; // Update path if needed
+import CommunityBG from "@/assets/communitybg.png"; // Update path if needed
 
 const CommunitySection = () => {
   return (

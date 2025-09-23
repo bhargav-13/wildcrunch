@@ -1,6 +1,6 @@
 import React from "react";
 import { UserCircle } from "lucide-react";
-import OurStoryBG from "@/assets/Our Story_BG.png";
+import OurStoryBG from "@/assets/ourstorybg.png";
 
 const OurMission = () => {
   return (

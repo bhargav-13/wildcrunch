@@ -1,4 +1,4 @@
-import productGrid from "@/assets/Our Story_BG.png";
+import productGrid from "@/assets/ourstorybg.png";
 import { ArrowDown } from "lucide-react";
 import { ChevronDown } from "lucide-react";
 

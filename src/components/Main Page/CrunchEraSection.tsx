@@ -7,12 +7,12 @@ import CrunchyMakhana from '@/assets/crunchymakhana.png';
 import Makhana from '@/assets/makhana.png';
 import PremiumMakhana from '@/assets/premiummakhana.png';
 
-import HighProteinIcon from "@/assets/proteinLogo.png";
-import LowCaloriesIcon from "@/assets/calourieLogo.png";
-import IngredientsIcon from "@/assets/ingredientsLogo.png";
-import GlutenFreeIcon from "@/assets/GlutenLogo.png";
-import FlavorIcon from "@/assets/deliciousLogo.png";
-import pointsBG from "@/assets/pointsBG.png";
+import HighProteinIcon from "@/assets/proteinlogo.png";
+import LowCaloriesIcon from "@/assets/calourielogo.png";
+import IngredientsIcon from "@/assets/ingredientslogo.png";
+import GlutenFreeIcon from "@/assets/Glutenlogo.png";
+import FlavorIcon from "@/assets/deliciouslogo.png";
+import pointsBG from "@/assets/pointsbg.png";
 
 const CrunchEraSection = () => {
   const products = [
