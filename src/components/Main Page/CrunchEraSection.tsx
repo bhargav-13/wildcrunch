@@ -12,7 +12,7 @@ import LowCaloriesIcon from "@/assets/calourieLogo.png";
 import IngredientsIcon from "@/assets/ingredientsLogo.png";
 import GlutenFreeIcon from "@/assets/GlutenLogo.png";
 import FlavorIcon from "@/assets/deliciousLogo.png";
-import pointsBG from "@/assets/pointsbg.png";
+import pointsBG from "@/assets/pointsBG.png";
 
 const CrunchEraSection = () => {
   const products = [
