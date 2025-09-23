@@ -7,7 +7,7 @@ import CrunchyMakhana from '@/assets/crunchymakhana.png';
 import Makhana from '@/assets/makhana.png';
 import PremiumMakhana from '@/assets/premiummakhana.png';
 
-import HighProteinIcon from "@/assets/proteinlogo.png";
+import HighProteinIcon from "@/assets/proteinLogo.png";
 import LowCaloriesIcon from "@/assets/calourielogo.png";
 import IngredientsIcon from "@/assets/ingredientslogo.png";
 import GlutenFreeIcon from "@/assets/Glutenlogo.png";
