@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 
 const TestimonialsSection = () => {
   const testimonials = [
@@ -29,7 +30,7 @@ const TestimonialsSection = () => {
   ];
 
   return (
-    <section className="py-10 bg-[#F8F7E5]">
+<section id="testimonials" className="py-10 bg-[#F8F7E5]">
       <div className="container mx-auto px-6">
         {/* Curved Heading */}
         <div className="flex justify-center mb-8">
@@ -54,9 +55,20 @@ const TestimonialsSection = () => {
         {/* Testimonials */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 justify-center items-stretch max-w-7xl mx-auto">
           {testimonials.map((t, i) => (
-            <div
+            <motion.div
               key={i}
               className={`${t.color} rounded-full px-8 py-12 flex flex-col items-center justify-center text-center shadow-md h-[400px] sm:h-[420px]`}
+              initial={{ opacity: 0, y: 50, scale: 0.8 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: false, amount: 0.3 }}
+              transition={{
+                type: "spring",
+                stiffness: 120,
+                damping: 18,
+                mass: 0.8,
+                delay: i * 0.2,
+              }}
+              whileHover={{ scale: 1.05, y: -5 }}
             >
               {/* Stars */}
               <div className="text-yellow-500 text-2xl mb-6">⭐⭐⭐⭐⭐</div>
@@ -70,7 +82,7 @@ const TestimonialsSection = () => {
               <div className="font-suez font-bold text-2xl text-foreground">
                 ~{t.name}
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

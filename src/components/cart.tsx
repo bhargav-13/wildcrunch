@@ -1,25 +1,8 @@
 import { X, ChevronLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import img1 from "@/assets/1.png"
-import img2 from "@/assets/2.png"
-// Mock cart data for now
-const cartItems = [
-  {
-    id: "1",
-    name: "Salt & Pepper Makhana",
-    price: 200,
-    quantity: 1,
-    imageSrc: img1,
-  },
-  {
-    id: "2",
-    name: "Indian Masala Puffs",
-    price: 40,
-    quantity: 1,
-    imageSrc: img2,
-  },
-];
+import { useCart } from "@/hooks/useCart";
+import localProducts from "@/data/product";
 
 interface CartProps {
   isOpen: boolean;
@@ -28,9 +11,16 @@ interface CartProps {
 
 const Cart = ({ isOpen, onClose }: CartProps) => {
   const navigate = useNavigate();
+  const { cartItems, totalPrice, totalItems } = useCart();
   
-  // subtotal
-  const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  // Merge cart items with local product data for images
+  const enhancedCartItems = cartItems.map(item => {
+    const localProduct = localProducts.find(p => p.id === item.productId);
+    return {
+      ...item,
+      imageSrc: localProduct?.imageSrc || item.imageSrc,
+    };
+  });
 
   const handleContinueToCart = () => {
     navigate('/cart');
@@ -45,7 +35,7 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
           animate={{ x: 0 }}
           exit={{ x: "100%" }}
           transition={{ type: "tween", duration: 0.3 }}
-          className="fixed top-0 right-0 w-[400px] h-full bg-[#F8F7E5] shadow-2xl z-50 flex flex-col"
+          className="fixed top-0 right-0 w-[400px] h-full bg-[#F8F7E5] shadow-2xl z-[9999] flex flex-col"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-dashed border-black font-suez text-lg">
@@ -57,28 +47,38 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
 
           {/* Items */}
           <div className="flex-1 overflow-auto">
-            {cartItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-4 border-b border-dashed border-black">
-                <div className="flex items-center gap-3">
-                  {/* Product Image with black border */}
-                  <div className="w-16 h-16 border border-black flex items-center justify-center">
-                    <img src={item.imageSrc} alt={item.name} className="max-w-full max-h-full" />
-                  </div>
-                  {/* Name and quantity */}
-                  <div>
-                    <p className="font-suez text-sm">{item.quantity}x {item.name}</p>
-                  </div>
-                </div>
-                {/* Price */}
-                <p className="font-suez text-sm">₹{item.price}</p>
+            {enhancedCartItems.length === 0 ? (
+              <div className="flex items-center justify-center p-8 text-gray-500">
+                <p className="font-jost">Your cart is empty</p>
               </div>
-            ))}
+            ) : (
+              enhancedCartItems.map((item) => {
+                const packLabel = item.pack === '1' ? '' : ` (Pack of ${item.pack})`;
+                return (
+                <div key={`${item.productId}-${item.pack}`} className="flex items-center justify-between p-4 border-b border-dashed border-black">
+                  <div className="flex items-center gap-3">
+                    {/* Product Image with black border */}
+                    <div className="w-16 h-16 border border-black flex items-center justify-center">
+                      <img src={item.imageSrc} alt={item.name} className="max-w-full max-h-full" />
+                    </div>
+                    {/* Name, pack, and quantity */}
+                    <div>
+                      <p className="font-suez text-sm">{item.quantity}x {item.name}</p>
+                      {packLabel && <p className="font-jost text-xs text-gray-600">{packLabel}</p>}
+                    </div>
+                  </div>
+                  {/* Price */}
+                  <p className="font-suez text-sm">₹{item.packPrice || item.priceNumeric}</p>
+                </div>
+                );
+              })
+            )}
           </div>
 
           {/* Subtotal */}
           <div className="flex items-center justify-between p-4 border-t border-dashed border-black font-suez text-lg">
-            <span>Subtotal ({cartItems.length} product{cartItems.length > 1 ? "s" : ""})</span>
-            <span>₹{subtotal}</span>
+            <span>Subtotal ({totalItems} product{totalItems !== 1 ? "s" : ""})</span>
+            <span>₹{totalPrice}</span>
           </div>
 
           {/* Footer actions */}

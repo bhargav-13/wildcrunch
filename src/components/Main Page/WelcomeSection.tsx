@@ -2,30 +2,14 @@ import LogoWC from "@/assets/LogoWC.png";
 
 const WelcomeSection = () => {
   return (
-    <section className="py-20 bg-background overflow-hidden">
-      {/* Infinite Loop Text */}
-      <div className="w-full overflow-hidden border-y border-muted py-3 bg-background">
-        <div className="flex animate-marquee whitespace-nowrap">
-          {Array(10)
-            .fill("BETTER FOR YOU,")
-            .map((text, idx) => (
-              <span
-                key={idx}
-                className="mx-4 text-7xl font-suez text-[#DFD637] tracking-wide"
-              >
-                {text}
-              </span>
-            ))}
-        </div>
-      </div>
+    <section className="py-20 bg-[#F8F7E5] overflow-hidden">
 
-      <div className="container mx-auto px-4 mt-12">
+
+      <div className="container mx-auto px-4">
         <div className="max-w-8xl mx-auto text-center space-y-12">
           {/* ABOUT + Logo */}
           <div className="flex flex-col items-center space-y-4">
-            <span className="text-lg font-suez text-foreground uppercase tracking-wide">
-              ABOUT
-            </span>
+
             <img
               src={LogoWC}
               alt="Wild Crunch Logo"
@@ -40,7 +24,7 @@ const WelcomeSection = () => {
     <br />
     THIS{" "}
     <span
-      className="inline-block text-center sm:text-left align-text-middle font-suez text-xs sm:text-sm leading-snug ml-0 sm:ml-2 mr-0 sm:mr-2 mt-2 sm:mt-0"
+      className="inline-block text-center sm:text-left align-text-middle font-suez text-[10px] sm:text-sm leading-snug ml-0 sm:ml-2 mr-0 sm:mr-2 mt-2 sm:mt-0"
     >
       A Space For Snack <br />
       Lovers, Where Taste, <br />
@@ -50,7 +34,7 @@ const WelcomeSection = () => {
     <br />
     TOGETHER{" "}
     <span
-      className="inline-block text-center sm:text-left align-text-middle font-suez text-xs sm:text-sm leading-snug ml-0 sm:ml-2 mr-0 sm:mr-2 mt-2 sm:mt-0"
+      className="inline-block text-center sm:text-left align-text-middle font-suez text-[10px] sm:text-sm leading-snug ml-0 sm:ml-2 mr-0 sm:mr-2 mt-2 sm:mt-0"
     >
       Made For Snack Lovers, <br />
       Where Every Bite Feels <br />
@@ -84,6 +68,23 @@ const WelcomeSection = () => {
           </div>
         </div>
       </div>
+
+            {/* Infinite Loop Text */}
+      <div className="w-full overflow-hidden  py-3 mt-12">
+        <div className="flex animate-marquee whitespace-nowrap">
+          {Array(10)
+            .fill("BETTER FOR YOU,")
+            .map((text, idx) => (
+              <span
+                key={idx}
+                className="mx-4 text-4xl sm:text-7xl font-suez text-[#DFD637] tracking-wide"
+              >
+                {text}
+              </span>
+            ))}
+        </div>
+      </div>
+
     </section>
   );
 };

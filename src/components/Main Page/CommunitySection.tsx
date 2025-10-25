@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import CommunityBG from "@/assets/CommunityBG.png"; // Update path if needed
 
@@ -11,7 +12,13 @@ const CommunitySection = () => {
       <div className="container mx-auto px-4 sm:px-0 lg:px-12">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left Content */}
-          <div className="space-y-12 text-left px-2 sm:px-0 lg:px-8">
+          <motion.div
+            className="space-y-12 text-left px-2 sm:px-0 lg:px-8"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.4 }}
+            transition={{ type: "spring", stiffness: 100, damping: 20, duration: 1.5 }}
+          >
             <h1 className="max-w-12xl text-6xl sm:text-7xl lg:text-8xl font-suez text-white leading-snug sm:leading-tight">
               BECOME
               <br />
@@ -26,10 +33,16 @@ const CommunitySection = () => {
               </div>
               OUR HOOD
             </h1>
-          </div>
+          </motion.div>
 
           {/* Right Content */}
-          <div className="space-y-8 max-w-xl text-center lg:text-left px-2 sm:px-0 lg:px-8">
+          <motion.div
+            className="space-y-8 max-w-xl text-center lg:text-left px-2 sm:px-0 lg:px-8"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.4 }}
+            transition={{ type: "spring", stiffness: 100, damping: 20, duration: 1.5, delay: 0.3 }}
+          >
             <p className="font-jost text-white text-lg sm:text-xl lg:text-2xl leading-relaxed text-center lg:text-left mx-2 sm:mx-0">
               Only True Snack Lovers Who Join Our Wild Crunch Community Get The
               First Taste Of What’s Next. From New Flavors To Special Offers, We
@@ -39,23 +52,48 @@ const CommunitySection = () => {
 
             {/* Email Input + Button */}
             <div className="relative flex items-center space-x-4">
-              <div className="flex-1">
+              <motion.div
+                className="flex-1"
+                initial={{ opacity: 0, x: -50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: false, amount: 0.4 }}
+                transition={{ type: "spring", stiffness: 100, damping: 20, duration: 1.5, delay: 0.5 }}
+              >
                 <input
                   type="email"
                   placeholder="Enter Email"
                   className="w-full bg-transparent text-white placeholder-white focus:outline-none text-left"
                 />
-                {/* Underlines with more spacing */}
                 <div className="space-y-4">
-                  <div className="border-b border-white w-full"></div>
-                  <div className="border-b border-dotted border-white w-full"></div>
+                  <motion.div
+                    className="border-b border-white w-full"
+                    initial={{ scaleX: 0 }}
+                    whileInView={{ scaleX: 1 }}
+                    style={{ transformOrigin: "left" }}
+                    viewport={{ once: false, amount: 0.4 }}
+                    transition={{ type: "spring", stiffness: 100, damping: 20, duration: 1.2, delay: 0.6 }}
+                  />
+                  <motion.div
+                    className="border-b border-dotted border-white w-full"
+                    initial={{ scaleX: 0 }}
+                    whileInView={{ scaleX: 1 }}
+                    style={{ transformOrigin: "left" }}
+                    viewport={{ once: false, amount: 0.4 }}
+                    transition={{ type: "spring", stiffness: 100, damping: 20, duration: 1.2, delay: 0.7 }}
+                  />
                 </div>
-              </div>
-              <button className="w-14 h-14 flex items-center justify-center rounded-full bg-[#FECACA] hover:bg-[#fdaaaa] transition">
+              </motion.div>
+              <motion.button
+                className="w-14 h-14 flex items-center justify-center rounded-full bg-[#FECACA] hover:bg-[#fdaaaa] transition"
+                initial={{ scale: 0 }}
+                whileInView={{ scale: 1 }}
+                viewport={{ once: false, amount: 0.4 }}
+                transition={{ type: "spring", stiffness: 120, damping: 18, duration: 1.5, delay: 0.8 }}
+              >
                 <ArrowUpRight className="w-6 h-6 text-black" />
-              </button>
+              </motion.button>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>

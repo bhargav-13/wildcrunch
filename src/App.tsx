@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
+import { Toaster } from "sonner";
 
 import Products from "./pages/Products";
 import InProduct from "./components/Product/Inproduct";
@@ -13,6 +14,12 @@ import PaymentPage from "./components/Buy/Payment";
 import ConfirmPage from "./components/Buy/Confirm";
 import NotFound from "./pages/NotFound";
 import AddressPage from "./components/Buy/Address";
+import OrderDetailPage from "./components/Buy/OrderDetail";
+import ScrollToTop from "./components/extra/ScrollTop";
+import LoginPage from "./components/Profile & Login/login";
+import Profile from "./components/Profile & Login/profile";
+import ProtectedRoute from "./components/ProtectedRoute";
+
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -26,11 +33,14 @@ function AnimatedRoutes() {
         <Route path="/product/:id" element={<InProduct />} /> {/* dynamic route */}
         <Route path="/dealerships" element={<Dealerships />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/wishlist" element={<WishlistPage />} />
-        <Route path="/cart" element={<Cart/>} />
-        <Route path="/address" element={<AddressPage/>} />
-        <Route path="/payment" element={<PaymentPage/>} />
-        <Route path="/confirm" element={<ConfirmPage/>} /> 
+        <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
+        <Route path="/cart" element={<ProtectedRoute><Cart/></ProtectedRoute>} />
+        <Route path="/address" element={<ProtectedRoute><AddressPage/></ProtectedRoute>} />
+        <Route path="/payment" element={<ProtectedRoute><PaymentPage/></ProtectedRoute>} />
+        <Route path="/confirm" element={<ProtectedRoute><ConfirmPage/></ProtectedRoute>} />
+        <Route path="/order/:id" element={<ProtectedRoute><OrderDetailPage/></ProtectedRoute>} />
+        <Route path="/Login" element={<LoginPage/>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
 
       </Routes>
@@ -40,7 +50,9 @@ function AnimatedRoutes() {
 
 const App = () => (
   <BrowserRouter>
+    <ScrollToTop />
     <AnimatedRoutes />
+    <Toaster position="top-right" richColors />
   </BrowserRouter>
 );
 

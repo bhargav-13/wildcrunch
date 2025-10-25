@@ -17,33 +17,34 @@ const FullScreenSlider = () => {
   }, []);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden">
-      {/* Slider Images */}
-      {offers.map((offer, index) => (
-        <img
-          key={index}
-          src={offer}
-          alt={`Offer ${index + 1}`}
-          className={`w-full h-full object-cover absolute top-0 left-0 transition-opacity duration-700 ease-in-out ${
-            index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"
-          }`}
-        />
-      ))}
+<div className="relative w-full h-[20vh] sm:h-[70vh] md:h-[80vh] lg:h-[100vh] overflow-hidden">
+  {/* Slider Images */}
+  {offers.map((offer, index) => (
+    <img
+      key={index}
+      src={offer}
+      alt={`Offer ${index + 1}`}
+      className={`w-full h-full object-cover absolute top-0 left-0 transition-opacity duration-700 ease-in-out ${
+        index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"
+      }`}
+    />
+  ))}
 
-      {/* Indicators */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3 z-20">
-        {offers.map((_, index) => (
-          <span
-            key={index}
-            className="w-4 h-4 rounded-full"
-            style={{
-              backgroundColor:
-                currentSlide === index ? "#80A305" : "#9EC319",
-            }}
-          />
-        ))}
-      </div>
-    </div>
+  {/* Indicators */}
+  <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3 z-20">
+    {offers.map((_, index) => (
+      <span
+        key={index}
+        className="w-3 sm:w-4 h-3 sm:h-4 rounded-full transition-colors duration-300"
+        style={{
+          backgroundColor:
+            currentSlide === index ? "#80A305" : "#9EC319",
+        }}
+      />
+    ))}
+  </div>
+</div>
+
   );
 };
 

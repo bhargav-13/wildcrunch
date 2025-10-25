@@ -1,14 +1,13 @@
-import { useEffect } from "react";
-import { useState } from "react";
-import { Heart, ShoppingCart, ArrowLeft } from "lucide-react";
-import { Search } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import products from "@/data/product";
-import Review from "./Review.tsx";
-import Others from "./Others.tsx";
-import FooterForInProduct from "./FooterForInProduct.tsx";
-import Header from "@/components/Header";
-import { useWishlist } from "@/components/WishlistContext.tsx";
+import { useState, useEffect } from "react";
+import { Heart, ShoppingCart, Search, Filter } from "lucide-react";
+import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { useWishlist } from "@/hooks/useWishlist";
+import { useProducts } from "@/hooks/useProducts";
+import { useCart } from "@/hooks/useCart";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import localProducts from "@/data/product";
 
 // Categories
 const categories = [
@@ -22,35 +21,77 @@ const categories = [
 const Products = () => {
   const [selectedCategory, setSelectedCategory] = useState("All Products");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState<any>(null); // modal product
-  const { wishlist, toggleWishlist } = useWishlist();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const { toggleWishlist, isInWishlist } = useWishlist();
+  const { addToCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
-  // Filter products
-  const filteredProducts = products.filter((product) => {
-    const matchesCategory =
-      selectedCategory === "All Products" ||
-      product.category === selectedCategory;
-    const matchesSearch = product.name
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
+  // Fetch products from backend
+  const { products: apiProducts, loading, error } = useProducts({
+    category: selectedCategory === "All Products" ? undefined : selectedCategory,
+    search: searchTerm,
   });
 
-  useEffect(() => {
-    if (selectedProduct) {
-      document.body.style.overflow = "hidden"; // disable page scroll
-    } else {
-      document.body.style.overflow = "auto"; // restore scroll
+  // Use local products for now (backend images not configured yet)
+  // TODO: Switch to API products once backend serves images properly
+  const products = localProducts;
+
+  // Filter products (excluding Combo from "All Products")
+  const filteredProducts = products.filter((product) => {
+    // Category filter
+    if (selectedCategory !== "All Products" && product.category !== selectedCategory) {
+      return false;
     }
-    return () => {
-      document.body.style.overflow = "auto";
-    };
-  }, [selectedProduct]);
+    // Exclude Combo from "All Products"
+    if (selectedCategory === "All Products" && product.category === "Combo") {
+      return false;
+    }
+    // Search filter
+    if (searchTerm && !product.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
+    }
+    return true;
+  });
+
+  const handleProductClick = (product: any) => {
+    navigate(`/product/${product.id}`);
+  };
+
+  const handleAddToCart = async (e: React.MouseEvent, product: any) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.error('Please login to add items to cart');
+      navigate('/login');
+      return;
+    }
+    try {
+      await addToCart(product.id, 1);
+      toast.success(`${product.name} added to cart!`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add to cart");
+    }
+  };
+
+  const handleWishlistToggle = async (e: React.MouseEvent, product: any) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.error('Please login to add items to wishlist');
+      navigate('/login');
+      return;
+    }
+    try {
+      const action = await toggleWishlist(product.id);
+      toast.success(action === 'added' ? 'Added to wishlist!' : 'Removed from wishlist!');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update wishlist');
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 flex gap-8">
-        {/* Sidebar */}
+    <div className="min-h-screen bg-[#F8F7E5]">
+      <div className="container mx-auto px-4 sm:px-12 py-8 flex gap-8">
+        {/* Sidebar (Desktop only) */}
         <aside className="w-1/4 hidden md:block sticky top-20 h-fit">
           <h2 className="font-suez text-3xl text-[#212121] mb-6">SHOP ALL</h2>
           <hr className="border-t-2 border-[#212121] mb-8" />
@@ -72,9 +113,10 @@ const Products = () => {
 
         {/* Main content */}
         <main className="flex-1">
-          {/* Search bar */}
-          <div className="sticky top-20 bg-background z-10 pb-16 sm:pb-10">
-            <div className="relative">
+          {/* Search bar + Mobile filter icon */}
+          <div className="sticky top-20 z-10 pb-16 sm:pb-10 flex items-center gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
               <Search
                 className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#C06441]"
                 size={20}
@@ -87,47 +129,127 @@ const Products = () => {
                 className="w-full pl-12 pr-4 py-3 border border-[#C06441] rounded-full bg-transparent placeholder-[#C06441] text-[#212121] focus:outline-none"
               />
             </div>
+
+            {/* Mobile filter button */}
+            <button
+              className="md:hidden w-12 h-12 rounded-full border border-[#C06441] flex items-center justify-center bg-white shadow-sm"
+              onClick={() => setIsFilterOpen(true)}
+            >
+              <Filter size={20} className="text-[#C06441]" />
+            </button>
           </div>
 
+          {/* Mobile Filter Drawer */}
+          {isFilterOpen && (
+            <div className="fixed inset-0 z-[100] flex">
+              {/* Backdrop */}
+              <div
+                className="flex-1 bg-black/50"
+                onClick={() => setIsFilterOpen(false)}
+              />
+
+              {/* Drawer */}
+              <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ duration: 0.3 }}
+                className="w-64 bg-[#F8F7E5] h-full shadow-xl p-6"
+              >
+                <h2 className="font-suez text-2xl text-[#212121] mb-6">
+                  FILTERS
+                </h2>
+                <hr className="border-t-2 border-[#212121] mb-6" />
+                <ul className="space-y-4">
+                  {categories.map((cat) => (
+                    <li
+                      key={cat}
+                      onClick={() => {
+                        setSelectedCategory(cat);
+                        setIsFilterOpen(false); // close after selecting
+                      }}
+                      className={`cursor-pointer font-suez text-lg ${
+                        selectedCategory === cat
+                          ? "text-[#DD815C]"
+                          : "text-[#212121]"
+                      }`}
+                    >
+                      {cat}
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            </div>
+          )}
+
+          {/* Loading state */}
+          {loading && (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C06441]"></div>
+            </div>
+          )}
+
+          {/* Error state */}
+          {error && (
+            <div className="text-center py-20">
+              <p className="text-red-500 font-jost">{error}</p>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!loading && !error && filteredProducts.length === 0 && (
+            <div className="text-center py-20">
+              <p className="font-jost text-lg text-gray-600">No products found</p>
+            </div>
+          )}
+
           {/* Product grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-20 sm:gap-x-12 sm:gap-y-24 mt-12">
+          {!loading && !error && filteredProducts.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-12 sm:gap-x-12 sm:gap-y-24 sm:mt-40">
             {filteredProducts.map((product, index) => (
               <div
-                key={index}
-                onClick={() => setSelectedProduct(product)}
+                key={`${product.id}-${index}`}
+                onClick={() => handleProductClick(product)}
                 className="relative rounded-3xl p-6 shadow-md min-h-[280px] sm:min-h-[320px] overflow-visible block cursor-pointer"
                 style={{ backgroundColor: product.bgColor }}
               >
                 {/* Heart */}
-                <button
-                  className="absolute top-4 right-4"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleWishlist(product);
-                  }}
-                >
-                  <Heart
-                    size={20}
-                    className={
-                      wishlist.some((item) => item.id === product.id)
-                        ? "fill-black"
-                        : ""
-                    }
-                  />
-                </button>
+<button
+  className="absolute top-4 right-4 z-20"
+  onClick={(e) => handleWishlistToggle(e, product)}
+>
+  <Heart
+    size={20}
+    className={
+      isInWishlist(product.id)
+        ? "fill-black"
+        : ""
+    }
+  />
+</button>
 
                 {/* Product Image */}
-                <motion.div
-                  layoutId={`product-image-container-${product.id}`}
-                  className="absolute -top-16 left-1/2 transform -translate-x-1/2"
-                >
-                  <motion.img
-                    layoutId={`product-image-${product.id}`}
-                    src={product.imageSrc}
-                    alt={product.name}
-                    className="max-w-none w-[120px] sm:w-[150px] h-auto mx-auto transform transition-transform duration-500 hover:-rotate-12"
-                  />
-                </motion.div>
+<motion.div
+  key={`product-image-container-${product.id}-${index}`}
+  className={`absolute left-1/2 transform -translate-x-1/2 z-10 ${
+    product.category === "Combo"
+      ? "top-[-5px] sm:top-[-30px]"
+      : "-top-28 sm:-top-36"
+  }`}
+>
+  <motion.img
+    key={`product-image-${product.id}-${index}`}
+    src={product.imageSrc}
+    alt={product.name}
+    className={`max-w-none mx-auto transform transition-transform duration-500 hover:-rotate-12 ${
+      product.category === "Combo" && index === 0
+        ? "w-[230px] h-[250px] sm:w-[350px] sm:h-[280px] -mt-8 object-contain"
+        : product.category === "Combo"
+        ? "w-[200px] sm:w-[250px] h-auto"
+        : "w-[300px] mt-8 sm:mt-0 sm:w-[420px] h-auto"
+    }`}
+  />
+</motion.div>
 
                 {/* Details */}
                 <div className="mt-2 flex flex-col justify-end text-left text-white h-full">
@@ -141,209 +263,14 @@ const Products = () => {
                 {/* Cart */}
                 <button
                   className="absolute -bottom-4 -right-4 bg-[#FCEB81] w-12 h-12 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => handleAddToCart(e, product)}
                 >
                   <ShoppingCart size={20} className="text-gray-800" />
                 </button>
               </div>
             ))}
           </div>
-
-          {/* Modal for selected product */}
-
-          {/* Modal for selected product (InProduct starts here) */}
-          <AnimatePresence>
-            {selectedProduct && (
-              <motion.div
-                key="modal"
-                className="fixed top-0 left-0 w-screen h-screen z-50 overflow-hidden"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                {/* Header */}
-                <Header />
-
-                {/* Background with grain + color fade */}
-                <motion.div
-                  className="absolute top-[82px] left-0 w-full h-full z-0"
-                  style={{
-                    backgroundColor: selectedProduct.bgColor,
-                    backgroundImage:
-                      "radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)",
-                    backgroundSize: "20px 20px",
-                  }}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  onClick={() => setSelectedProduct(null)}
-                />
-
-                {/* Back button */}
-                <button
-                  onClick={() => setSelectedProduct(null)}
-                  className="absolute top-24 left-4 bg-white/20 p-2 rounded-full"
-                  style={{ zIndex: 9999 }}
-                >
-                  <ArrowLeft />
-                </button>
-
-                {/* Modal content */}
-                <div className="relative w-full h-full flex flex-col items-center justify-start px-4 pt-32 z-50 overflow-auto hide-scrollbar">
-                  <div className="w-[1400px] mx-auto flex flex-col md:flex-row gap-8">
-                    {/* Left Column */}
-                    <motion.div
-                      className="flex-1 flex flex-col justify-between text-white"
-                      initial={{ opacity: 0, x: -50 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{
-                        delay: 0.5,
-                        duration: 0.6,
-                        ease: "easeOut",
-                      }}
-                    >
-                      <div>
-                        <motion.h2
-                          className="font-suez text-xl mb-4 text-black"
-                          initial={{ opacity: 0, y: -20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.6, duration: 0.5 }}
-                        >
-                          Taste the Lightness in Every Bite of Makhana.
-                        </motion.h2>
-                        <motion.p
-                          className="font-jost text-base text-[#DD815C]"
-                          initial={{ opacity: 0, y: -20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.7, duration: 0.5 }}
-                        >
-                          Craving something light yet flavorful? No worries.
-                          Just grab a handful of our perfectly roasted makhana,
-                          seasoned to hit every taste bud with the right crunch
-                          and spice. Pure, wholesome, and guilt-free. Damn
-                          tasty. It’s the little joys of snacking, made better…
-                        </motion.p>
-                      </div>
-                      <motion.div
-                        className="text-right mt-8"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.8, duration: 0.5 }}
-                      >
-                        <h3 className="font-suez text-xl mb-2 text-[#DD815C]">
-                          INGREDIENTS
-                        </h3>
-                        <p className="font-suez text-base text-black">
-                          Makhana (Fox Nuts), Rice Bran Oil,
-                          <br /> Habanero Chili Powder, Red Chili <br />
-                          Flakes, <br />
-                          Rock Salt, Black Pepper, Natural Spices
-                        </p>
-                      </motion.div>
-                    </motion.div>
-
-                    {/* Middle Column (Product Image stays same) */}
-                    <div className="flex-1 flex justify-center items-center relative">
-                      <motion.div
-                        layoutId={`product-image-${selectedProduct.id}`}
-                        className="rounded-[80px] border-dashed border-2 border-[#DD815C] p-6"
-                      >
-                        <div className="rounded-[80px] border border-[#DD815C] p-4 flex justify-center items-center">
-                          <motion.img
-                            src={selectedProduct.imageSrc}
-                            alt={selectedProduct.name}
-                            className="w-[250px] sm:w-[300px]"
-                          />
-                        </div>
-                      </motion.div>
-                    </div>
-
-                    {/* Right Column */}
-                    <motion.div
-                      className="flex-1 flex flex-col justify-between text-white"
-                      initial={{ opacity: 0, x: 50 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{
-                        delay: 0.5,
-                        duration: 0.6,
-                        ease: "easeOut",
-                      }}
-                    >
-                      <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6, duration: 0.5 }}
-                      >
-                        <h3 className="font-suez text-3xl mb-2 text-[#DD815C]">
-                          Discover our Makhana
-                        </h3>
-                        <p className="font-suez text-5xl text-[#212121]">
-                          {selectedProduct.name}
-                        </p>
-                        <div className="flex items-center gap-4 text-[#DD815C]">
-                          <p className="font-suez text-lg">
-                            {selectedProduct.weight}
-                          </p>
-                          <p className="font-suez text-xl">
-                            {selectedProduct.price}
-                          </p>
-                        </div>
-                      </motion.div>
-
-                      <motion.div
-                        className="mt-8 flex flex-col gap-4"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.7, duration: 0.5 }}
-                      >
-                        <div className="border-t border-dashed border-[#DD815C]"></div>
-                        <div className="flex items-center justify-start text-[#DD815C] font-suez gap-4 pl-4">
-                          <span>Made with Multigrams</span>
-                          <span className="border-l border-dashed border-[#DD815C] h-8"></span>
-                          <span>Fried Not Baked</span>
-                        </div>
-                        <div className="border-t border-dashed border-[#DD815C]"></div>
-                        <div className="flex items-center justify-start text-[#DD815C] font-suez gap-4 pl-4">
-                          <span className="pr-[76px]">High Protein</span>
-                          <span className="border-l border-dashed border-[#DD815C] h-8"></span>
-                          <span>Low in Cholesterol</span>
-                        </div>
-                        <div className="border-t border-dashed border-[#DD815C]"></div>
-                      </motion.div>
-
-                      <motion.div
-                        className="flex items-center mt-8 gap-4"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.8, duration: 0.5 }}
-                      >
-                        <div className="flex items-center border border-[#DD815C] rounded-full px-6 py-3 bg-transparent">
-                          <button className="px-3 text-[#DD815C] font-suez">
-                            -
-                          </button>
-                          <span className="px-4 text-[#DD815C] font-suez">
-                            1
-                          </span>
-                          <button className="px-2 text-[#DD815C] font-suez">
-                            +
-                          </button>
-                        </div>
-                        <button className="border border-[#DD815C] rounded-full p-3 bg-transparent">
-                          <Heart size={20} className="text-[#DD815C]" />
-                        </button>
-                        <button className="bg-[#F1B213] text-white px-6 py-3 rounded-full font-jost">
-                          ADD TO CART
-                        </button>
-                      </motion.div>
-                    </motion.div>
-                  </div>
-                  <Review />
-                  <Others />
-                  <FooterForInProduct />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          )}
         </main>
       </div>
     </div>

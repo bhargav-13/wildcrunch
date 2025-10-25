@@ -3,12 +3,14 @@ import Footer from "@/components/Footer";
 import { useState, useEffect } from "react";
 import { X, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
-import type { Product } from "@/data/product";
-import { useWishlist } from "@/components/WishlistContext";
-import products from "@/data/product";
+import { useWishlist } from "@/hooks/useWishlist";
+import { useCart } from "@/hooks/useCart";
+import { toast } from "sonner";
+import localProducts from "@/data/product";
 
 const WishlistPage = () => {
-  const { wishlist, removeFromWishlist } = useWishlist(); // use context
+  const { wishlistItems, removeFromWishlist, loading } = useWishlist();
+  const { addToCart } = useCart();
   const [pathData, setPathData] = useState<string>("");
 
   // Generate random smooth ECG-like path
@@ -29,15 +31,47 @@ const WishlistPage = () => {
     setPathData(generateRandomPath());
   }, []);
 
-  // Take only first 6 wishlist items
-  const wishlistProducts: Product[] = wishlist.slice(0, 6);
+  // Merge backend wishlist items with local product data for images
+  const wishlistProducts = wishlistItems.slice(0, 6).map(item => {
+    const product = item.product || item;
+    const localProduct = localProducts.find(p => p.id === (item.productId || product.id));
+    
+    // Merge backend data with local images
+    return {
+      ...product,
+      productId: item.productId || product.id,
+      imageSrc: localProduct?.imageSrc || product.imageSrc,
+      bgColor: localProduct?.bgColor || product.bgColor,
+      name: product.name || localProduct?.name,
+      price: product.price || localProduct?.price,
+      weight: product.weight || localProduct?.weight,
+    };
+  });
+
+  const handleRemoveFromWishlist = async (productId: string) => {
+    try {
+      await removeFromWishlist(productId);
+      toast.success('Removed from wishlist');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to remove from wishlist');
+    }
+  };
+
+  const handleAddToCart = async (productId: string) => {
+    try {
+      await addToCart(productId, 1);
+      toast.success('Added to cart!');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add to cart');
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen bg-[#F8F7E5] relative">
       <Header />
 
       {/* Section */}
-      <section className="container mx-auto px-4 py-12 sm:py-24">
+      <section className="container mx-auto px-4 py-12 sm:py-24 mt-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="flex items-center justify-center">
             <h2 className="text-4xl md:text-7xl font-bold font-suez text-foreground">
@@ -67,16 +101,28 @@ const WishlistPage = () => {
 
       {/* Wishlist Grid */}
       <section className="container mx-auto px-4 py-12">
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F1B213]"></div>
+          </div>
+        ) : wishlistProducts.length === 0 ? (
+          <div className="col-span-full text-center py-20">
+            <p className="font-jost text-lg text-gray-600">Your wishlist is empty</p>
+          </div>
+        ) : (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-20 sm:gap-x-12 sm:gap-y-24 mt-12">
-{wishlistProducts.map((product: Product) => (
+{wishlistProducts.map((product) => (
   <div
-    key={product.id}
+    key={product.productId}
     className="relative rounded-3xl p-6 shadow-md min-h-[280px] sm:min-h-[320px] overflow-visible block cursor-pointer"
     style={{ backgroundColor: product.bgColor }}
   >
     {/* Cross Button */}
     <button
-      onClick={() => removeFromWishlist(product.id)}
+      onClick={(e) => {
+        e.stopPropagation();
+        handleRemoveFromWishlist(product.productId);
+      }}
       className="absolute top-4 right-4 text-white hover:text-red-500"
     >
       <X size={20} />
@@ -84,14 +130,14 @@ const WishlistPage = () => {
 
     {/* Product Image */}
     <motion.div
-      layoutId={`product-image-container-${product.id}`}
+      layoutId={`product-image-container-${product.productId}`}
       className="absolute -top-20 inset-x-0 flex justify-center"
     >
       <motion.img
-        layoutId={`product-image-${product.id}`}
+        layoutId={`product-image-${product.productId}`}
         src={product.imageSrc}
         alt={product.name}
-        className="w-[120px] sm:w-[150px] h-auto transition-transform duration-500 hover:-rotate-12"
+        className=" max-w-none w-[270px] sm:w-[330px] h-auto transition-transform duration-500 hover:-rotate-12"
       />
     </motion.div>
 
@@ -102,18 +148,21 @@ const WishlistPage = () => {
       <p className="font-suez text-lg">{product.price}</p>
     </div>
 
-    {/* Cart Button */}
-
-<button
-  onClick={() => removeFromWishlist(String(product.id))}
-  className="absolute top-4 right-4 text-white hover:text-red-500"
->
-  <X size={20} />
-</button>
+    {/* Shopping Cart Button */}
+    <motion.button 
+      onClick={(e) => {
+        e.stopPropagation();
+        handleAddToCart(product.productId);
+      }}
+      className="absolute bottom-[-16px] right-[-16px] bg-[#FCEB81] w-12 h-12 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition"
+    >
+      <ShoppingCart size={20} className="text-gray-800" />
+    </motion.button>
   </div>
 ))}
 
         </div>
+        )}
       </section>
 
       <Footer />

@@ -11,6 +11,7 @@ const OurWork = () => {
   ];
 
   const [linePaths, setLinePaths] = useState([]);
+  const [isReady, setIsReady] = useState(false);
   const containerRef = useRef(null);
   const itemRefs = useRef([]);
 
@@ -32,54 +33,95 @@ const OurWork = () => {
         newPaths.push(`M ${points[i].x} ${points[i].y} L ${points[i + 1].x} ${points[i + 1].y}`);
       }
       setLinePaths(newPaths);
+      setIsReady(true);
     }
   }, []);
 
   useEffect(() => {
+    // Multiple delayed calculations to ensure proper positioning
+    const timeouts = [
+      setTimeout(() => calculatePaths(), 100),
+      setTimeout(() => calculatePaths(), 300),
+      setTimeout(() => calculatePaths(), 500),
+      setTimeout(() => calculatePaths(), 1000)
+    ];
+
     // Run once after paint
-    requestAnimationFrame(() => calculatePaths());
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => calculatePaths());
+    });
 
     // Recalculate when window resizes
-    const handleResize = () => requestAnimationFrame(() => calculatePaths());
+    const handleResize = () => {
+      setIsReady(false);
+      setTimeout(() => {
+        requestAnimationFrame(() => calculatePaths());
+      }, 100);
+    };
     window.addEventListener("resize", handleResize);
 
     // Observe size/position changes of container
     const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(() => calculatePaths());
+      setIsReady(false);
+      setTimeout(() => {
+        requestAnimationFrame(() => calculatePaths());
+      }, 50);
     });
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
     }
 
     // Re-run once fonts/images are loaded
-    window.addEventListener("load", calculatePaths);
+    const handleLoad = () => {
+      setTimeout(() => calculatePaths(), 100);
+    };
+    window.addEventListener("load", handleLoad);
+
+    // Additional check after fonts are loaded
+    if (document.fonts) {
+      document.fonts.ready.then(() => {
+        setTimeout(() => calculatePaths(), 100);
+      });
+    }
 
     return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
       window.removeEventListener("resize", handleResize);
-      window.removeEventListener("load", calculatePaths);
+      window.removeEventListener("load", handleLoad);
       resizeObserver.disconnect();
     };
+  }, [calculatePaths]);
+
+  // Additional effect to recalculate after animations complete
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      calculatePaths();
+    }, 2000); // Wait for animations to complete
+
+    return () => clearTimeout(timer);
   }, [calculatePaths]);
 
   return (
     <div className="bg-[#F8F7E5] py-16 lg:py-24 overflow-hidden relative" ref={containerRef}>
       
       {/* SVG Layer for Drawing Lines */}
-      <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-0">
-        {linePaths.map((path, i) => (
-          <motion.path
-            key={i}
-            d={path}
-            stroke="#bca586"
-            strokeWidth="2"
-            fill="none"
-            strokeDasharray="6 6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.8 }}
-          />
-        ))}
-      </svg>
+{/* SVG Layer for Drawing Lines - only visible on large screens */}
+<svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-0 hidden lg:block">
+  {isReady && linePaths.map((path, i) => (
+    <motion.path
+      key={`${i}-${path}`}
+      d={path}
+      stroke="#bca586"
+      strokeWidth="2"
+      fill="none"
+      strokeDasharray="6 6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.8, delay: 0.8 }}
+    />
+  ))}
+</svg>
+
 
       <div className="container mx-auto px-4 relative z-10">
         {/* Header Section */}
@@ -102,6 +144,12 @@ const OurWork = () => {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: index * 0.2, ease: "easeOut" }}
               viewport={{ once: true, amount: 0.3 }}
+              onAnimationComplete={() => {
+                // Recalculate paths after each animation completes
+                if (index === processSteps.length - 1) {
+                  setTimeout(() => calculatePaths(), 100);
+                }
+              }}
             >
               <div className="relative">
                 <div className="w-14 h-14 bg-[#EAB38A] rounded-full flex items-center justify-center absolute -top-0 -left-0 z-10">

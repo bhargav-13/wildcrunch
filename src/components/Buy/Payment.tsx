@@ -1,30 +1,109 @@
-import React, { useState } from 'react';
-import { ChevronLeft, User, Menu } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../Header';
-// Mock cart data for order summary
-const cartItems = [
-  {
-    id: "1",
-    name: "HABANERO CHILLY",
-    price: 40,
-    quantity: 4,
-  },
-  {
-    id: "2", 
-    name: "HABANERO CHILLY",
-    price: 40,
-    quantity: 3,
-  },
-];
+import { useCart } from '@/hooks/useCart';
+import { usePayment } from '@/hooks/usePayment';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { ordersAPI } from '@/services/api';
 
 
 
 const PaymentPage = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const orderId = searchParams.get('orderId');
   const [selectedPayment, setSelectedPayment] = useState('razor');
+  const { clearCart } = useCart();
+  const { initializePayment, loading: paymentLoading } = usePayment();
+  const { isAuthenticated } = useAuth();
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const deliveryCharge = 60;
-  const total = subtotal + deliveryCharge;
+  useEffect(() => {
+    if (!isAuthenticated) {
+      toast.error('Please login to continue');
+      navigate('/login');
+      return;
+    }
+
+    if (!orderId) {
+      toast.error('Order ID not found');
+      navigate('/cart');
+      return;
+    }
+
+    // Fetch order details
+    const fetchOrder = async () => {
+      try {
+        setLoading(true);
+        const response = await ordersAPI.getById(orderId);
+        if (response.data.success) {
+          const fetchedOrder = response.data.data;
+          setOrder(fetchedOrder);
+          
+          // Check if order has shipping address
+          if (!fetchedOrder.shippingAddress) {
+            toast.error('Please add a shipping address first');
+            navigate(`/address?orderId=${orderId}`);
+          }
+        }
+      } catch (error: any) {
+        toast.error('Failed to fetch order');
+        navigate('/cart');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrder();
+  }, [isAuthenticated, navigate, orderId]);
+
+  // Get order items
+  const orderItems = order?.items || [];
+  const cartItems = orderItems.map((item: any) => {
+    const packLabel = item.pack === '1' ? 'Individual' : item.pack === '2' ? 'Pack of 2' : item.pack === '4' ? 'Pack of 4' : '';
+    return {
+      ...item,
+      packLabel,
+      displayPrice: item.packPrice || item.priceNumeric,
+    };
+  });
+
+  const subtotal = order?.itemsPrice || 0;
+  const deliveryCharge = order?.shippingPrice || 60;
+  const total = order?.totalPrice || 0;
+
+  const handlePayment = async () => {
+    if (!order) {
+      toast.error('Order not found');
+      return;
+    }
+
+    if (!order.shippingAddress) {
+      toast.error('Please add a shipping address first');
+      navigate(`/address?orderId=${orderId}`);
+      return;
+    }
+
+    // Initialize Razorpay payment with existing order
+    await initializePayment(
+      order,  // Pass the full order object
+      async (updatedOrder) => {
+        // Payment successful
+        toast.success('Payment successful!');
+        // Clear cart
+        await clearCart();
+        // Navigate to order page
+        navigate(`/order/${updatedOrder._id}`);
+      },
+      (error) => {
+        // Payment failed
+        toast.error(error.message || 'Payment failed. Please try again.');
+      }
+    );
+  };
 
   // Progress steps
   const steps = [
@@ -34,33 +113,72 @@ const PaymentPage = () => {
     { name: 'Confirm', completed: false, active: false },
   ];
 
+  // Show loading while fetching order
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F8F7E5]">
+        <Header />
+        <div className="flex flex-col justify-center items-center h-screen">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#F1B213] mb-4"></div>
+          <p className="text-xl font-suez text-black">Loading payment details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading during payment processing
+  if (paymentLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8F7E5]">
+        <Header />
+        <div className="flex flex-col justify-center items-center h-screen">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#F1B213] mb-4"></div>
+          <p className="text-xl font-suez text-black">Processing payment...</p>
+          <p className="text-sm font-jost text-gray-600 mt-2">Please complete payment in the popup window</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8F7E5] font-jost">
       <Header />
 
       {/* Progress Steps */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center">
-            {steps.map((step, index) => (
-              <React.Fragment key={step.name}>
-                <div className="flex flex-col items-center">
-                  <div className={`w-4 h-4 rounded-full ${
-                    step.active 
-                      ? 'bg-black' 
-                      : step.completed
-                      ? 'bg-black'
-                      : 'bg-gray-300'
-                  }`}></div>
-                  <span className="text-sm mt-2 font-medium">{step.name}</span>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className="w-16 sm:w-32 h-px bg-black mx-4 sm:mx-8 mt-[-20px]"></div>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
+      <div className="container mx-auto px-4 py-8 mt-24">
+<div className="flex items-center justify-center mb-8 relative w-full">
+  {/* Gray background line */}
+  <div className="absolute top-2 left-0 right-0 h-0.5 bg-gray-300 z-0"></div>
+
+  {/* Black progress line */}
+  <div
+    className="absolute top-2 left-0 h-0.5 bg-black transition-all duration-500 z-0"
+    style={{
+      width: `${(steps.findIndex(step => step.active) / (steps.length - 1)) * 100}%`,
+    }}
+  ></div>
+
+  {/* Steps */}
+  <div className="flex items-center justify-between w-full max-w-3xl relative z-10">
+    {steps.map((step, index) => (
+      <div key={step.name} className="flex flex-col items-center">
+        {/* Circle */}
+        <div
+          className={`w-4 h-4 rounded-full border-2 border-white ${
+            step.active
+              ? "bg-black"
+              : step.completed
+              ? "bg-black"
+              : "bg-gray-300"
+          }`}
+        ></div>
+        {/* Label */}
+        <span className="text-sm mt-2 font-medium">{step.name}</span>
+      </div>
+    ))}
+  </div>
+</div>
+
 
         {/* Main Content */}
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
@@ -138,9 +256,9 @@ const PaymentPage = () => {
               <div className="space-y-4 lg:space-y-6">
                 {/* Summary Items */}
                 {cartItems.map((item) => (
-                  <div key={`summary-${item.id}`} className="flex justify-between items-center">
-                    <span className="text-sm lg:text-lg font-suez">×{item.quantity} {item.name}</span>
-                    <span className="text-sm lg:text-lg font-medium font-suez">₹{(item.price * item.quantity)}.00</span>
+                  <div key={`summary-${item.productId}-${item.pack}`} className="flex justify-between items-center">
+                    <span className="text-sm lg:text-lg font-suez">×{item.quantity} {item.name}{item.pack !== '1' ? ` (${item.packLabel})` : ''}</span>
+                    <span className="text-sm lg:text-lg font-medium font-suez">₹{(item.displayPrice * item.quantity)}.00</span>
                   </div>
                 ))}
                 
@@ -169,16 +287,11 @@ const PaymentPage = () => {
                 {/* Action Buttons */}
                 <div className="space-y-3 lg:space-y-4 mt-6 lg:mt-8">
                   <button 
-                    onClick={() => window.location.href = '/confirm'}
-                    className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium hover:bg-[#E5A612] transition-colors font-suez lg:block hidden"
+                    onClick={handlePayment}
+                    disabled={paymentLoading || loading || cartItems.length === 0}
+                    className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium hover:bg-[#E5A612] transition-colors font-suez disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Next Step
-                  </button>
-                  <button 
-                    onClick={() => window.location.href = '/confirm'}
-                    className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium hover:bg-[#E5A612] transition-colors font-suez lg:hidden"
-                  >
-                    View More Products
+                    {paymentLoading ? 'Processing...' : 'Pay Now'}
                   </button>
                   <button 
                     onClick={() => window.location.href = '/'}

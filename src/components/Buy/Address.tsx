@@ -1,26 +1,21 @@
-import React, { useState } from 'react';
-import { ChevronLeft, User, Menu } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../Header';
-
-// Mock cart data for order summary
-const cartItems = [
-  {
-    id: "1",
-    name: "HABANERO CHILLY",
-    price: 40,
-    quantity: 4,
-  },
-  {
-    id: "2", 
-    name: "HABANERO CHILLY",
-    price: 40,
-    quantity: 3,
-  },
-];
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { authAPI, ordersAPI } from '@/services/api';
 
 
 
 const AddressPage = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const orderId = searchParams.get('orderId');
+  const { isAuthenticated, user } = useAuth();
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -32,9 +27,52 @@ const AddressPage = () => {
     area: '',
     zipcode: '',
     city: '',
+    state: 'Maharashtra',
     privacyPolicy: false,
     generalConditions: false
   });
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      toast.error('Please login to continue');
+      navigate('/login');
+      return;
+    }
+
+    if (!orderId) {
+      toast.error('Order ID not found');
+      navigate('/cart');
+      return;
+    }
+
+    // Fetch order details
+    const fetchOrder = async () => {
+      try {
+        setLoading(true);
+        const response = await ordersAPI.getById(orderId);
+        if (response.data.success) {
+          setOrder(response.data.data);
+        }
+      } catch (error: any) {
+        toast.error('Failed to fetch order');
+        navigate('/cart');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrder();
+
+    // Pre-fill email if available
+    if (user?.email) {
+      setFormData(prev => ({
+        ...prev,
+        email: user.email,
+        firstName: user.name?.split(' ')[0] || '',
+        lastName: user.name?.split(' ')[1] || '',
+      }));
+    }
+  }, [isAuthenticated, user, navigate, orderId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -44,9 +82,102 @@ const AddressPage = () => {
     }));
   };
 
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const deliveryCharge = 60;
-  const total = subtotal + deliveryCharge;
+  const handleNextStep = async () => {
+    // Validate required fields
+    const requiredFields = [
+      { field: 'firstName', label: 'First name' },
+      { field: 'lastName', label: 'Last name' },
+      { field: 'email', label: 'Email' },
+      { field: 'contactNumber', label: 'Contact number' },
+      { field: 'buildingName', label: 'Building name' },
+      { field: 'blockHouseNo', label: 'Block/flat/house number' },
+      { field: 'streetNumber', label: 'Street number' },
+      { field: 'area', label: 'Area' },
+      { field: 'zipcode', label: 'Zipcode' },
+      { field: 'city', label: 'City' },
+      { field: 'state', label: 'State' },
+    ];
+
+    for (const { field, label } of requiredFields) {
+      if (!formData[field as keyof typeof formData]) {
+        toast.error(`${label} is required`);
+        return;
+      }
+    }
+
+    if (!formData.privacyPolicy) {
+      toast.error('Please accept the privacy policy');
+      return;
+    }
+
+    if (!formData.generalConditions) {
+      toast.error('Please accept the general conditions');
+      return;
+    }
+
+    if (!orderId) {
+      toast.error('Order ID not found');
+      return;
+    }
+
+    try {
+      // Prepare shipping address
+      const shippingAddress = {
+        fullName: `${formData.firstName} ${formData.lastName}`,
+        email: formData.email,
+        phone: formData.contactNumber,
+        address: `${formData.blockHouseNo}, ${formData.buildingName}, ${formData.streetNumber}`,
+        area: formData.area,
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.zipcode,
+      };
+
+      // Update order with shipping address (Step 2)
+      const response = await ordersAPI.updateAddress(orderId, shippingAddress);
+      
+      if (response.data.success) {
+        // Also save address to user profile for future use
+        try {
+          await authAPI.addAddress({
+            name: shippingAddress.fullName,
+            phone: shippingAddress.phone,
+            addressLine1: `${formData.blockHouseNo}, ${formData.buildingName}`,
+            addressLine2: formData.streetNumber,
+            city: formData.city,
+            state: formData.state,
+            pincode: formData.zipcode,
+            isDefault: true
+          });
+        } catch (err) {
+          // Ignore profile save error, continue with checkout
+          console.log('Failed to save to profile, but continuing checkout');
+        }
+
+        toast.success('Address saved successfully!');
+        // Navigate to payment page with order ID
+        navigate(`/payment?orderId=${orderId}`);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to save address');
+      console.error('Address save error:', error);
+    }
+  };
+
+  // Get order items
+  const orderItems = order?.items || [];
+  const cartItems = orderItems.map((item: any) => {
+    const packLabel = item.pack === '1' ? 'Individual' : item.pack === '2' ? 'Pack of 2' : item.pack === '4' ? 'Pack of 4' : '';
+    return {
+      ...item,
+      packLabel,
+      displayPrice: item.packPrice || item.priceNumeric,
+    };
+  });
+
+  const subtotal = order?.itemsPrice || 0;
+  const deliveryCharge = order?.shippingPrice || 60;
+  const total = order?.totalPrice || 0;
 
   // Progress steps
   const steps = [
@@ -61,28 +192,40 @@ const AddressPage = () => {
       <Header />
 
       {/* Progress Steps */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center">
-            {steps.map((step, index) => (
-              <React.Fragment key={step.name}>
-                <div className="flex flex-col items-center">
-                  <div className={`w-4 h-4 rounded-full ${
-                    step.active 
-                      ? 'bg-black' 
-                      : step.completed
-                      ? 'bg-black'
-                      : 'bg-gray-300'
-                  }`}></div>
-                  <span className="text-sm mt-2 font-medium">{step.name}</span>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className="w-16 sm:w-32 h-px bg-black mx-4 sm:mx-8 mt-[-20px]"></div>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
+      <div className="container mx-auto px-4 py-8 mt-24">
+<div className="flex items-center justify-center mb-8 relative w-full">
+  {/* Gray background line */}
+  <div className="absolute top-2 left-0 right-0 h-0.5 bg-gray-300 z-0"></div>
+
+  {/* Black progress line */}
+  <div
+    className="absolute top-2 left-0 h-0.5 bg-black transition-all duration-500 z-0"
+    style={{
+      width: `${(steps.findIndex(step => step.active) / (steps.length - 1)) * 100}%`,
+    }}
+  ></div>
+
+  {/* Steps */}
+  <div className="flex items-center justify-between w-full max-w-3xl relative z-10">
+    {steps.map((step, index) => (
+      <div key={step.name} className="flex flex-col items-center">
+        {/* Circle */}
+        <div
+          className={`w-4 h-4 rounded-full border-2 border-white ${
+            step.active
+              ? "bg-black"
+              : step.completed
+              ? "bg-black"
+              : "bg-gray-300"
+          }`}
+        ></div>
+        {/* Label */}
+        <span className="text-sm mt-2 font-medium">{step.name}</span>
+      </div>
+    ))}
+  </div>
+</div>
+
 
         {/* Main Content */}
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
@@ -234,6 +377,21 @@ const AddressPage = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">State*</label>
+                  <input
+                    type="text"
+                    name="state"
+                    placeholder="State"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
+                </div>
+              </div>
+
               {/* Checkboxes */}
               <div className="space-y-4 mb-8">
                 <div className="border-b border-dashed border-black pb-4">
@@ -277,9 +435,9 @@ const AddressPage = () => {
               <div className="space-y-4 lg:space-y-6">
                 {/* Summary Items */}
                 {cartItems.map((item) => (
-                  <div key={`summary-${item.id}`} className="flex justify-between items-center">
-                    <span className="text-sm lg:text-lg font-suez">×{item.quantity} {item.name}</span>
-                    <span className="text-sm lg:text-lg font-medium font-suez">₹{(item.price * item.quantity)}.00</span>
+                  <div key={`summary-${item.productId}-${item.pack}`} className="flex justify-between items-center">
+                    <span className="text-sm lg:text-lg font-suez">×{item.quantity} {item.name}{item.pack !== '1' ? ` (${item.packLabel})` : ''}</span>
+                    <span className="text-sm lg:text-lg font-medium font-suez">₹{(item.displayPrice * item.quantity)}.00</span>
                   </div>
                 ))}
                 
@@ -308,16 +466,11 @@ const AddressPage = () => {
                 {/* Action Buttons */}
                 <div className="space-y-3 lg:space-y-4 mt-6 lg:mt-8">
                   <button 
-                    onClick={() => window.location.href = '/payment'}
-                    className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium hover:bg-[#E5A612] transition-colors font-suez lg:block hidden"
+                    onClick={handleNextStep}
+                    disabled={loading || cartItems.length === 0}
+                    className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium hover:bg-[#E5A612] transition-colors font-suez disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next Step
-                  </button>
-                  <button 
-                    onClick={() => window.location.href = '/payment'}
-                    className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium hover:bg-[#E5A612] transition-colors font-suez lg:hidden"
-                  >
-                    View More Products
                   </button>
                   <button 
                     onClick={() => window.location.href = '/'}

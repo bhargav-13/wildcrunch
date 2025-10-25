@@ -1,47 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Minus, Plus, Trash2 } from 'lucide-react';
-import Header from '../Header'; // Import your existing header
-
-// Mock cart data - using the same products from the popup
-const initialCartItems = [
-  {
-    id: "1",
-    name: "HABANERO CHILLY",
-    price: 40,
-    quantity: 4,
-    imageSrc: "/api/placeholder/150/200", // Replace with your actual image path
-  },
-  {
-    id: "2", 
-    name: "HABANERO CHILLY",
-    price: 40,
-    quantity: 3,
-    imageSrc: "/api/placeholder/150/200", // Replace with your actual image path
-  },
-];
+import { useNavigate } from 'react-router-dom';
+import Header from '../Header';
+import { useCart } from '@/hooks/useCart';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import localProducts from '@/data/product';
+import { ordersAPI } from '@/services/api';
 
 const CartPage = () => {
-  const [cartItems, setCartItems] = useState(initialCartItems);
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { cart, loading, updateQuantity, removeFromCart, refreshCart } = useCart();
   const [couponCode, setCouponCode] = useState('');
+  const [creatingOrder, setCreatingOrder] = useState(false);
 
-  const updateQuantity = (id: string, newQuantity: number) => {
+  useEffect(() => {
+    if (!isAuthenticated) {
+      toast.error('Please login to view your cart');
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshCart();
+    }
+  }, [isAuthenticated]);
+
+  const handleUpdateQuantity = async (productId: string, newQuantity: number, pack?: string) => {
     if (newQuantity < 1) return;
-    setCartItems(items => 
-      items.map(item => 
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
+    try {
+      await updateQuantity(productId, newQuantity, pack);
+      toast.success('Cart updated');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update cart');
+    }
   };
 
-  const removeItem = (id: string) => {
-    setCartItems(items => items.filter(item => item.id !== id));
+  const handleRemoveItem = async (productId: string, pack?: string) => {
+    try {
+      await removeFromCart(productId, pack);
+      toast.success('Item removed from cart');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to remove item');
+    }
   };
 
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  // Create unpaid order and navigate to address page
+  const handleCheckout = async () => {
+    try {
+      setCreatingOrder(true);
+      
+      console.log('🛒 Creating order from cart...');
+      
+      // Create unpaid order from cart (Step 1)
+      const response = await ordersAPI.createFromCart();
+      
+      console.log('✅ Order creation response:', response.data);
+      
+      if (response.data.success) {
+        const order = response.data.data.order;
+        console.log('✅ Order created successfully:', order._id);
+        toast.success('Order created! Please add shipping address.');
+        // Navigate to address page with order ID
+        navigate(`/address?orderId=${order._id}`);
+      } else {
+        console.error('❌ Order creation failed:', response.data);
+        toast.error(response.data.message || 'Failed to create order');
+        setCreatingOrder(false);
+      }
+    } catch (error: any) {
+      console.error('❌ Checkout error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      
+      // Show specific error message
+      const errorMessage = error.response?.data?.message || 'Failed to create order. Please try again.';
+      toast.error(errorMessage);
+      setCreatingOrder(false);
+    }
+  };
+
+  const rawCartItems = cart?.items || [];
+  
+  // Merge cart items with local product data for images
+  const cartItems = rawCartItems.map(item => {
+    const localProduct = localProducts.find(p => p.id === item.productId);
+    const packLabel = item.pack === '1' ? 'Individual' : item.pack === '2' ? 'Pack of 2' : item.pack === '4' ? 'Pack of 4' : '';
+    return {
+      ...item,
+      imageSrc: localProduct?.imageSrc || item.imageSrc,
+      packLabel,
+      displayPrice: item.packPrice || item.priceNumeric,
+    };
+  });
+  
+  const subtotal = cart?.totalPrice || 0;
   const deliveryCharge = 60;
   const total = subtotal + deliveryCharge;
-
-  const totalQuantity = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const totalQuantity = cart?.totalItems || 0;
 
   // Progress steps
   const steps = [
@@ -51,34 +108,89 @@ const CartPage = () => {
     { name: 'Confirm', completed: false, active: false },
   ];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F8F7E5]">
+        <Header />
+        <div className="flex justify-center items-center h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C06441]"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Full screen loader while creating order
+  if (creatingOrder) {
+    return (
+      <div className="min-h-screen bg-[#F8F7E5]">
+        <Header />
+        <div className="flex flex-col justify-center items-center h-screen">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#F1B213] mb-4"></div>
+          <p className="text-xl font-suez text-black">Creating order with Razorpay...</p>
+          <p className="text-sm font-jost text-gray-600 mt-2">Please wait, this may take a moment</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!cart || cartItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#F8F7E5]">
+        <Header />
+        <div className="container mx-auto px-4 py-24 text-center">
+          <h2 className="text-3xl font-suez mb-4">Your cart is empty</h2>
+          <p className="text-lg font-jost mb-8">Add some products to get started!</p>
+          <button
+            onClick={() => navigate('/products')}
+            className="bg-[#F1B213] text-white px-8 py-3 rounded-full font-suez hover:bg-[#E5A612] transition-colors"
+          >
+            Continue Shopping
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8F7E5]">
-      {/* Use your existing header component */}
       <Header />
 
       {/* Progress Steps */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center space-x-8">
-            {steps.map((step, index) => (
-              <div key={step.name} className="flex items-center">
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    step.active 
-                      ? 'bg-black text-white' 
-                      : 'bg-gray-300 text-gray-500'
-                  }`}>
-                    <div className="w-3 h-3 rounded-full bg-current"></div>
-                  </div>
-                  <span className="text-sm mt-2 font-medium">{step.name}</span>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className="w-16 h-0.5 bg-gray-300 mx-4 mt-[-20px]"></div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="container mx-auto px-4 py-8 mt-24">
+<div className="flex items-center justify-center mb-8 relative w-full">
+  {/* Gray background line */}
+  <div className="absolute top-2 left-0 right-0 h-0.5 bg-gray-300 z-0"></div>
+
+  {/* Black progress line */}
+  <div
+    className="absolute top-2 left-0 h-0.5 bg-black transition-all duration-500 z-0"
+    style={{
+      width: `${(steps.findIndex(step => step.active) / (steps.length - 1)) * 100}%`,
+    }}
+  ></div>
+
+  {/* Steps */}
+  <div className="flex items-center justify-between w-full max-w-3xl relative z-10">
+    {steps.map((step, index) => (
+      <div key={step.name} className="flex flex-col items-center">
+        {/* Circle */}
+        <div
+          className={`w-4 h-4 rounded-full border-2 border-white ${
+            step.active
+              ? "bg-black"
+              : step.completed
+              ? "bg-black"
+              : "bg-gray-300"
+          }`}
+        ></div>
+        {/* Label */}
+        <span className="text-sm mt-2 font-medium">{step.name}</span>
+      </div>
+    ))}
+  </div>
+</div>
+
+
 
         {/* Desktop Layout */}
         <div className="hidden lg:grid lg:grid-cols-2 lg:gap-8">
@@ -89,7 +201,7 @@ const CartPage = () => {
             {/* Cart Items */}
             <div className="space-y-6">
               {cartItems.map((item, index) => (
-                <div key={item.id}>
+                <div key={`${item.productId}-${item.pack}`}>
                   <div className="flex items-center gap-6">
                     {/* Product Image */}
                     <div className="w-32 h-32 border border-black flex items-center justify-center bg-white flex-shrink-0">
@@ -103,20 +215,26 @@ const CartPage = () => {
                     {/* Product Name */}
                     <div className="flex-1">
                       <h3 className="text-xl font-bold font-suez">{item.name}</h3>
+                      <p className="text-sm font-jost text-gray-600">{item.weight}</p>
+                      {item.packLabel && item.pack !== '1' && (
+                        <p className="text-sm font-jost text-[#F1B213] mt-1">{item.packLabel}</p>
+                      )}
                     </div>
 
                     {/* Quantity Controls */}
                     <div className="flex items-center border border-black">
                       <button 
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1, item.pack)}
                         className="p-2 hover:bg-gray-100"
+                        disabled={loading}
                       >
                         <Minus className="h-4 w-4" />
                       </button>
                       <span className="px-4 py-2 min-w-[50px] text-center font-suez">{item.quantity}</span>
                       <button 
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1, item.pack)}
                         className="p-2 hover:bg-gray-100"
+                        disabled={loading}
                       >
                         <Plus className="h-4 w-4" />
                       </button>
@@ -124,14 +242,15 @@ const CartPage = () => {
                     
                     {/* Remove Button */}
                     <button 
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => handleRemoveItem(item.productId, item.pack)}
                       className="p-2 hover:bg-gray-100 rounded"
+                      disabled={loading}
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
 
                     {/* Price */}
-                    <div className="text-lg font-medium font-suez w-20 text-right">₹{item.price}.00</div>
+                    <div className="text-lg font-medium font-suez w-20 text-right">₹{item.displayPrice}</div>
                   </div>
                   
                   <div className="border-b border-dashed border-black my-6"></div>
@@ -175,9 +294,9 @@ const CartPage = () => {
             <div className="space-y-6">
               {/* Summary Items */}
               {cartItems.map((item) => (
-                <div key={`summary-${item.id}`} className="flex justify-between items-center">
-                  <span className="text-lg font-suez">×{item.quantity} {item.name}</span>
-                  <span className="text-lg font-medium font-jost">₹{(item.price * item.quantity)}.00</span>
+                <div key={`summary-${item.productId}-${item.pack}`} className="flex justify-between items-center">
+                  <span className="text-lg font-suez">×{item.quantity} {item.name}{item.pack !== '1' ? ` (${item.packLabel})` : ''}</span>
+                  <span className="text-lg font-medium font-jost">₹{(item.displayPrice * item.quantity)}.00</span>
                 </div>
               ))}
               
@@ -204,15 +323,18 @@ const CartPage = () => {
               </div>
 
               {/* Action Buttons */}
-              <div 
-              onClick={() => window.location.href = '/address '}
-              className="space-y-4 mt-8">
-                <button className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium hover:bg-[#E5A612] transition-colors font-suez">
-                  Next Step
+              <div className="space-y-4 mt-8">
+                <button 
+                  onClick={handleCheckout}
+                  disabled={creatingOrder || cartItems.length === 0}
+                  className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium hover:bg-[#E5A612] transition-colors font-suez disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creatingOrder ? 'Creating Order...' : 'Next Step'}
                 </button>
                 <button 
                   onClick={() => window.location.href = '/products'}
                   className="w-full text-black py-3 text-lg font-medium hover:text-[#F1B213] transition-colors font-suez"
+                  disabled={creatingOrder}
                 >
                   Continue Shopping
                 </button>
@@ -227,8 +349,8 @@ const CartPage = () => {
           
           {/* Cart Items */}
           <div className="space-y-4 mb-8">
-            {cartItems.map((item, index) => (
-              <div key={item.id}>
+              {cartItems.map((item, index) => (
+              <div key={`${item.productId}-${item.pack}`}>
                 <div className="flex items-center gap-4">
                   {/* Product Image */}
                   <div className="w-20 h-20 border border-black flex items-center justify-center bg-white flex-shrink-0">
@@ -242,32 +364,40 @@ const CartPage = () => {
                   {/* Product Name */}
                   <div className="flex-1">
                     <h3 className="text-lg font-bold font-suez">{item.name}</h3>
+                    {item.packLabel && item.pack !== '1' && (
+                      <p className="text-xs font-jost text-[#F1B213]">{item.packLabel}</p>
+                    )}
                   </div>
                   
                   {/* Quantity Controls */}
                   <div className="flex items-center border border-black">
                     <button 
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1, item.pack)}
                       className="p-1"
+                      disabled={loading}
                     >
                       <Minus className="h-3 w-3" />
                     </button>
                     <span className="px-3 py-1 text-sm font-suez">{item.quantity}</span>
                     <button 
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1, item.pack)}
                       className="p-1"
+                      disabled={loading}
                     >
                       <Plus className="h-3 w-3" />
                     </button>
                   </div>
                   
                   {/* Remove Button */}
-                  <button onClick={() => removeItem(item.id)}>
+                  <button 
+                    onClick={() => handleRemoveItem(item.productId, item.pack)}
+                    disabled={loading}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </button>
 
                   {/* Price */}
-                  <div className="text-lg font-medium font-suez">₹{item.price}.00</div>
+                  <div className="text-lg font-medium font-suez">₹{item.displayPrice}</div>
                 </div>
                 
                 <div className="border-b border-dashed border-black my-4"></div>
@@ -296,9 +426,9 @@ const CartPage = () => {
             <h3 className="text-xl font-bold mb-4 font-suez">Order Summary</h3>
             
             {cartItems.map((item) => (
-              <div key={`mobile-summary-${item.id}`} className="flex justify-between mb-2">
+              <div key={`mobile-summary-${item.productId}`} className="flex justify-between mb-2">
                 <span className="text-sm font-suez">×{item.quantity} {item.name}</span>
-                <span className="text-sm font-medium font-suez">₹{(item.price * item.quantity)}.00</span>
+                <span className="text-sm font-medium font-suez">₹{(item.priceNumeric * item.quantity)}.00</span>
               </div>
             ))}
             
@@ -320,8 +450,11 @@ const CartPage = () => {
 
           {/* Mobile Action Buttons */}
           <div className="space-y-3">
-            <button className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium font-suez">
-              View More Products
+            <button 
+            onClick={handleCheckout}
+            disabled={creatingOrder || cartItems.length === 0}
+            className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium font-suez disabled:opacity-50 disabled:cursor-not-allowed">
+              {creatingOrder ? 'Creating Order...' : 'Next Step'}
             </button>
             <button 
               onClick={() => window.location.href = '/ '}

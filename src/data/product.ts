@@ -13,6 +13,10 @@ import img12 from "@/assets/12.png";
 import img13 from "@/assets/13.png";
 import img14 from "@/assets/14.png";
 import img15 from "@/assets/15.png";
+import img16 from "@/assets/combo1.png"
+import img17 from "@/assets/combo2.png"
+import img18 from "@/assets/combo3.png"
+import img19 from "@/assets/combo4.png"
 
 
 export interface Product {
@@ -161,6 +165,42 @@ const products = [
     category: "Makhana",
     imageSrc: img15,
     bgColor: "#E88E8E",
+},
+{
+    id: "16",
+    name: "PROTEIN PUFF COMBO",
+    weight: "",
+    price: "₹120",
+    category: "Combo",
+    imageSrc: img16,
+    bgColor: "#F1B213",
+},
+{
+    id: "17",
+    name: "MAKHANA JAR COMBO",
+    weight: "",
+    price: "₹600",
+    category: "Combo",
+    imageSrc: img17,
+    bgColor: "#F0C4A7",
+},
+{
+    id: "18",
+    name: "POP CORN COMBO",
+    weight: "",
+    price: "₹2160",
+    category: "Combo",
+    imageSrc: img17,
+    bgColor: "#9EC417",
+},
+{
+    id: "19",
+    name: "MAKHANA POUNCH COMBO",
+    weight: "",
+    price: "₹200",
+    category: "Combo",
+    imageSrc: img19,
+    bgColor: "#84CE78",
 }
 
 ];
