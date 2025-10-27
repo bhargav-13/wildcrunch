@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Our Story/Hero";
 import RightCrunch from "@/components/Our Story/Rightcrunch";
+import SliderSection from "@/components/Our Story/slider"
 import OurMission from "@/components/Our Story/Ourmission";
 import TestimonialsSection from "@/components/Main Page/TestimonialsSection";
 import CommunitySection from "@/components/Main Page/CommunitySection";
@@ -97,6 +98,7 @@ const OurStory = () => {
 
 
        <RightCrunch/>
+       <SliderSection/>
      <OurMission/>
       <CommunitySection/>
       <TestimonialsSection/>

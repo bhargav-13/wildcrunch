@@ -2,22 +2,20 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ✅ Import your images
-
 import img2 from "@/assets/img2.jpg";
-import img10 from "@/assets/img10.jpg";
-import img11 from "@/assets/img11.jpg";
-import img12 from "@/assets/img12.jpg";
+import img8 from "@/assets/img8.jpg";
 
-const images = [img12, img10, img11, img2];
+
+const images = [img2, img8];
 
 const HeroSection = () => {
   const [index, setIndex] = useState(0);
 
-  // ✅ Auto change every 3 seconds
+
   useEffect(() => {
     const interval = setInterval(() => {
       setIndex((prev) => (prev + 1) % images.length);
-    }, 5000);
+    }, 7000);
     return () => clearInterval(interval);
   }, []);
 
@@ -36,7 +34,7 @@ const HeroSection = () => {
             key={images[index]}
             src={images[index]}
             alt={`slide-${index}`}
-            className="absolute inset-0 w-full h-full object-cover rounded-xl"
+            className="absolute inset-0 w-full h-full object-cover"
             initial={{
               opacity: 0,
               scale: 1.2,
@@ -82,7 +80,7 @@ const HeroSection = () => {
             opacity: [0.2, 0.4, 0.2],
             scale: [1, 1.05, 1],
           }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
 
         {/* 🎥 Parallax floating effect (whole section) */}
@@ -93,7 +91,7 @@ const HeroSection = () => {
             rotateZ: [0.5, -0.5, 0],
           }}
           transition={{
-            duration: 3,
+            duration: 10,
             repeat: Infinity,
             ease: "easeInOut",
           }}

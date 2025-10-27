@@ -44,9 +44,8 @@ return (
       <Header/>
 
     <HeroSection />
-    <ProductGrid />
+        <CrunchEraSection />
     <ProteinSection />
-    <CrunchEraSection />
     <WelcomeSection />
     <Blog/>
     <CommunitySection />
