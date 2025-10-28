@@ -160,230 +160,193 @@ const InProduct = () => {
         {/* Product content */}
         <div className="w-full px-4 pt-32 pb-16">
           <div className="w-full max-w-[1300px] mx-auto">
-            {/* Mobile Layout */}
-            <div className="block lg:hidden">
-              {/* Product Title */}
-              <motion.div
-                className="text-left mb-6"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.5 }}
-              >
-                <h3 className="font-suez text-sm mb-1 text-white">
-                  DISCOVER OUR MAKHANA
-                </h3>
-                <p className="font-suez text-4xl text-black mb-2">
-                  {selectedProduct.name}
-                </p>
-                <div className="flex items-center gap-4 text-white">
-                  <p className="font-suez text-base">
-                    {selectedProduct.weight}
-                  </p>
-                  <p className="font-suez text-lg">₹{displayPrice}</p>
-                </div>
-              </motion.div>
+{/* Mobile Layout */}
+<div className="block lg:hidden">
+  {/* Product Title */}
+  <motion.div
+    className="text-left mb-6"
+    initial={{ opacity: 0, y: -20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: 0.5, duration: 0.5 }}
+  >
+    <h3 className="font-suez text-sm mb-1 text-white">DISCOVER OUR MAKHANA</h3>
+    <p className="font-suez text-4xl text-black mb-2">{selectedProduct.name}</p>
+    <div className="flex items-center gap-4 text-white">
+      <p className="font-suez text-base">{selectedProduct.weight}</p>
+      <p className="font-suez text-lg">₹{displayPrice}</p>
+    </div>
+  </motion.div>
 
-              {/* Product Image and Radio Buttons Row */}
-              <div className="flex gap-6 mb-8">
-                {/* Product Image */}
-                <motion.div
-                  className="flex-shrink-0 w-[250px]"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.6, duration: 0.5 }}
-                >
-                  <div className="rounded-[40px] border-dashed border-2 border-white p-4">
-                    <div className="rounded-[40px] border border-white flex justify-center items-center">
-                      <motion.img
-                        key={`modal-image-${selectedProduct.id}`}
-                        layoutId={`product-image-${selectedProduct.id}`}
-                        src={selectedProduct.imageSrc}
-                        alt={selectedProduct.name}
-                        className="w-[300px] h-[250px] sm:w-[200px] sm:h-[230px] md:w-[220px] md:h-[250px] lg:w-[240px] lg:h-[270px]"
-                        initial={{ scale: 1 }}
-                        animate={{ scale: 1.3 }}
-                        transition={{ duration: 0.3 }}
-                      />
-                    </div>
-                  </div>
-                </motion.div>
+  {/* Redesigned Product Image + Pack Options */}
+  <div className="flex flex-col items-center gap-6 mb-10">
+    {/* Product Image with Decorative Borders */}
+    <motion.div
+      className="relative w-[220px] sm:w-[250px]"
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.6, duration: 0.5 }}
+    >
+      {/* Outer dashed border */}
+      <div className="absolute inset-0 border-2 border-dashed border-white rounded-[40px] translate-x-3 translate-y-3"></div>
 
-                {/* Pack Selection Radio Buttons and Action Buttons */}
-                <motion.div
-                  className="flex-1"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7, duration: 0.5 }}
-                >
-                  <div className="space-y-2 mb-6">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <div className="relative">
-                        <input
-                          type="radio"
-                          name="pack-mobile"
-                          value="1"
-                          checked={selectedPack === '1'}
-                          onChange={(e) => setSelectedPack(e.target.value as '1' | '2' | '4')}
-                          className="appearance-none w-4 h-4 rounded-full border-2 border-white cursor-pointer checked:bg-black"
-                        />
-                      </div>
-                      <span className="font-jost text-white text-xs sm:text-sm">
-                        Individual
-                      </span>
-                    </label>
+      {/* Inner solid border */}
+      <div className="relative border border-white rounded-[40px] p-4 bg-black/10 backdrop-blur-sm flex justify-center items-center">
+        <motion.img
+          key={`modal-image-${selectedProduct.id}`}
+          layoutId={`product-image-${selectedProduct.id}`}
+          src={selectedProduct.imageSrc}
+          alt={selectedProduct.name}
+          className="rounded-[30px] w-[220px] h-[200px] sm:w-[250px] sm:h-[230px] object-contain"
+          initial={{ scale: 1 }}
+          animate={{ scale: 1.2 }}
+          transition={{ duration: 0.3 }}
+        />
+      </div>
+    </motion.div>
 
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <div className="relative">
-                        <input
-                          type="radio"
-                          name="pack-mobile"
-                          value="2"
-                          checked={selectedPack === '2'}
-                          onChange={(e) => setSelectedPack(e.target.value as '1' | '2' | '4')}
-                          className="appearance-none w-4 h-4 rounded-full border-2 border-white cursor-pointer checked:bg-black"
-                        />
-                      </div>
-                      <span className="font-jost text-white text-xs sm:text-sm">
-                        Pack of 2 (5% off)
-                      </span>
-                    </label>
+    {/* Pack Selection */}
+    <motion.div
+      className="w-full px-6 flex flex-col items-center gap-4 bg-white/10 border border-white/30 rounded-2xl py-4"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.7, duration: 0.5 }}
+    >
+      <p className="text-white font-suez text-sm mb-2">Choose Your Pack</p>
+      <div className="flex justify-center gap-4">
+        {[
+          { value: "1", label: "Individual" },
+          { value: "2", label: "Pack of 2 (5% off)" },
+          { value: "4", label: "Pack of 4 (10% off)" },
+        ].map((pack) => (
+          <label key={pack.value} className="flex flex-col items-center cursor-pointer">
+            <input
+              type="radio"
+              name="pack-mobile"
+              value={pack.value}
+              checked={selectedPack === pack.value}
+              onChange={(e) =>
+                setSelectedPack(e.target.value as "1" | "2" | "4")
+              }
+              className="appearance-none w-5 h-5 border-2 border-white rounded-full checked:bg-[#F1B213] transition-all"
+            />
+            <span className="text-white text-xs font-jost mt-1">{pack.label}</span>
+          </label>
+        ))}
+      </div>
+    </motion.div>
 
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <div className="relative">
-                        <input
-                          type="radio"
-                          name="pack-mobile"
-                          value="4"
-                          checked={selectedPack === '4'}
-                          onChange={(e) => setSelectedPack(e.target.value as '1' | '2' | '4')}
-                          className="appearance-none w-4 h-4 rounded-full border-2 border-white cursor-pointer checked:bg-black"
-                        />
-                      </div>
-                      <span className="font-jost text-white text-xs sm:text-sm">
-                        Pack of 4 (10% off)
-                      </span>
-                    </label>
-                  </div>
+    {/* Quantity, Wishlist, Add to Cart (All in One Line) */}
+    <motion.div
+      className="w-full px-6 flex flex-col items-center gap-4"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.8, duration: 0.5 }}
+    >
+      <div className="flex items-center justify-between w-full gap-3">
+        {/* Quantity selector */}
+        <div className="flex items-center border border-white rounded-full px-3 py-1 bg-transparent">
+          <button
+            type="button"
+            onClick={handleDecrement}
+            disabled={quantity <= 1}
+            className="px-2 text-white font-suez text-sm hover:text-[#F1B213] transition-colors disabled:opacity-50"
+          >
+            -
+          </button>
+          <span className="px-2 text-white font-suez text-sm text-center">
+            {quantity}
+          </span>
+          <button
+            type="button"
+            onClick={handleIncrement}
+            className="px-2 text-white font-suez text-sm hover:text-[#F1B213] transition-colors"
+          >
+            +
+          </button>
+        </div>
 
-                  {/* Action Buttons */}
-                  <motion.div
-                    className="space-y-3"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8, duration: 0.5 }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center border border-white rounded-full px-2 sm:px-3 py-1 bg-transparent">
-                        <button 
-                          type="button"
-                          onClick={handleDecrement}
-                          disabled={quantity <= 1}
-                          className="px-1 text-white font-suez text-xs sm:text-sm hover:text-[#F1B213] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          -
-                        </button>
-                        <span className="px-2 text-white font-suez text-xs sm:text-sm min-w-[20px] text-center">
-                          {quantity}
-                        </span>
-                        <button 
-                          type="button"
-                          onClick={handleIncrement}
-                          className="px-1 text-white font-suez text-xs sm:text-sm hover:text-[#F1B213] transition-colors"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <button 
-                        className="border border-white rounded-full p-1 bg-transparent hover:bg-white/10 transition-colors"
-                        onClick={handleWishlistToggle}
-                      >
-                        <Heart size={14} className={`text-white sm:w-4 sm:h-4 ${isWishlisted ? 'fill-white' : ''}`} />
-                      </button>
-                    </div>
-                    <button 
-                      className="w-full bg-[#F1B213] text-white py-2 rounded-full font-jost font-semibold text-xs sm:text-sm md:text-base"
-                      onClick={handleAddToCart}
-                    >
-                      ADD TO CART
-                    </button>
-                    <p className="text-white text-[10px] sm:text-xs md:text-sm text-center">
-                      3000+ Happy Customers
-                    </p>
-                  </motion.div>
-                </motion.div>
-              </div>
+        {/* Wishlist */}
+        <button
+          className="border border-white rounded-full p-2 bg-transparent hover:bg-white/10 transition-colors"
+          onClick={handleWishlistToggle}
+        >
+          <Heart
+            size={16}
+            className={`text-white ${isWishlisted ? "fill-white" : ""}`}
+          />
+        </button>
 
-              {/* Features */}
-              <motion.div
-                className="flex flex-col gap-3 mb-8 mx-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9, duration: 0.5 }}
-              >
-                {/* Top border */}
-                <div className="border-t border-dashed border-white"></div>
+        {/* Add to Cart */}
+        <button
+          className="flex-1 bg-[#F1B213] text-white py-2 rounded-full font-jost font-semibold text-sm"
+          onClick={handleAddToCart}
+        >
+          ADD TO CART
+        </button>
+      </div>
 
-                {/* Main content area */}
-                <div className="flex items-center justify-center text-white font-suez text-xs sm:text-sm gap-8">
-                  {/* Left block */}
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <span>Made with Multigrams</span>
-                    <span className="border-t border-dashed border-white w-20 sm:w-28"></span>
-                    <span>Fried Not Baked</span>
-                  </div>
+      <p className="text-white text-xs text-center">3000+ Happy Customers</p>
+    </motion.div>
+  </div>
 
-                  {/* Vertical divider between both blocks */}
-                  <div className="border-l border-dashed border-white h-14"></div>
+  {/* --- DO NOT TOUCH BELOW THIS (features, ingredients, desc etc.) --- */}
+  <motion.div
+    className="flex flex-col gap-3 mb-8 mx-4"
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: 0.9, duration: 0.5 }}
+  >
+    <div className="border-t border-dashed border-white"></div>
+    <div className="flex items-center justify-center text-white font-suez text-xs sm:text-sm gap-8">
+      <div className="flex flex-col items-center gap-2 text-center">
+        <span>Made with Multigrams</span>
+        <span className="border-t border-dashed border-white w-20 sm:w-28"></span>
+        <span>Fried Not Baked</span>
+      </div>
+      <div className="border-l border-dashed border-white h-14"></div>
+      <div className="flex flex-col items-center gap-2 text-center">
+        <span>High Protein</span>
+        <span className="border-t border-dashed border-white w-20 sm:w-28"></span>
+        <span>Low in Cholesterol</span>
+      </div>
+    </div>
+    <div className="border-t border-dashed border-white"></div>
+  </motion.div>
 
-                  {/* Right block */}
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <span>High Protein</span>
-                    <span className="border-t border-dashed border-white w-20 sm:w-28"></span>
-                    <span>Low in Cholesterol</span>
-                  </div>
-                </div>
+  {/* Ingredients */}
+  <motion.div
+    className="mb-8"
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: 1.0, duration: 0.5 }}
+  >
+    <h3 className="font-suez text-lg mb-3 text-black">INGREDIENTS</h3>
+    <p className="font-suez text-sm text-white leading-relaxed">
+      Makhana (Fox Nuts), Rice Bran Oil, Habanero Chili Powder, Red Chili Flakes,
+      <br />
+      Rock Salt, Black Pepper, Natural Spices
+    </p>
+  </motion.div>
 
-                {/* Bottom border */}
-                <div className="border-t border-dashed border-white"></div>
-              </motion.div>
+  {/* Description */}
+  <motion.div
+    className="mb-8"
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: 1.1, duration: 0.5 }}
+  >
+    <h3 className="font-suez text-lg mb-3 text-black">
+      Taste the Lightness in Every Bite of Makhana.
+    </h3>
+    <p className="font-jost text-sm text-white leading-relaxed">
+      Craving something light yet flavorful? No worries. Just grab a handful of
+      our perfectly roasted makhana, seasoned to hit every taste bud with the
+      right crunch and spice. Pure, wholesome, and guilt-free. Damn tasty. It's
+      the little joys of snacking, made better…
+    </p>
+  </motion.div>
+</div>
 
-              {/* Ingredients */}
-              <motion.div
-                className="mb-8"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.0, duration: 0.5 }}
-              >
-                <h3 className="font-suez text-lg mb-3 text-black">
-                  INGREDIENTS
-                </h3>
-                <p className="font-suez text-sm text-white leading-relaxed">
-                  Makhana (Fox Nuts), Rice Bran Oil, Habanero Chili Powder, Red
-                  Chili Flakes,
-                  <br />
-                  Rock Salt, Black Pepper, Natural Spices
-                </p>
-              </motion.div>
-
-              {/* Description */}
-              <motion.div
-                className="mb-8"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.1, duration: 0.5 }}
-              >
-                <h3 className="font-suez text-lg mb-3 text-black">
-                  Taste the Lightness in Every Bite of Makhana.
-                </h3>
-                <p className="font-jost text-sm text-white leading-relaxed">
-                  Craving something light yet flavorful? No worries. Just grab a
-                  handful of our perfectly roasted makhana, seasoned to hit
-                  every taste bud with the right crunch and spice. Pure,
-                  wholesome, and guilt-free. Damn tasty. It's the little joys of
-                  snacking, made better…
-                </p>
-              </motion.div>
-            </div>
             {/* Desktop Layout */}
             <div className="hidden lg:flex flex-col lg:flex-row gap-8 h-[600px]">
               {/* Left Column */}
