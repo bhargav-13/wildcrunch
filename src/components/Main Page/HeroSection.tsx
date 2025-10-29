@@ -1,27 +1,46 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ✅ Import your images
-
+// ✅ Desktop Images
 import img2 from "@/assets/img2.jpg";
 import img10 from "@/assets/img10.jpg";
 import img11 from "@/assets/img11.jpg";
 import img12 from "@/assets/img12.jpg";
 
-const images = [img12, img10, img11, img2];
+// ✅ Mobile Images (3M to 8M)
+import img3M from "@/assets/3M.png";
+import img4M from "@/assets/4M.png";
+import img5M from "@/assets/5M.png";
+import img6M from "@/assets/6M.png";
+import img7M from "@/assets/7M.png";
+import img8M from "@/assets/8M.png";
 
 const HeroSection = () => {
   const [index, setIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ Auto change every 3 seconds
+  // ✅ Choose correct image set
+  const desktopImages = [img12, img10, img11, img2];
+  const mobileImages = [img3M, img4M, img5M, img6M, img7M, img8M];
+  const images = isMobile ? mobileImages : desktopImages;
+
+  // ✅ Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // ✅ Auto change every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setIndex((prev) => (prev + 1) % images.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [images.length]);
 
-  // Slightly randomize direction for organic transitions
+  // ✅ Randomize direction for subtle transitions
   const randomDir = () => (Math.random() > 0.5 ? 1 : -1);
 
   return (
@@ -30,13 +49,19 @@ const HeroSection = () => {
       <div className="h-24 lg:h-30 bg-[#F8F7E5]"></div>
 
       {/* ✅ Image slider container */}
-      <div className="relative w-[200vh] h-[85vh] overflow-hidden perspective-[1500px]">
+      <div
+        className={`relative overflow-hidden perspective-[1500px] ${
+          isMobile ? "w-full h-[60vh]" : "w-[200vh] h-[85vh]"
+        }`}
+      >
         <AnimatePresence mode="wait">
           <motion.img
             key={images[index]}
             src={images[index]}
             alt={`slide-${index}`}
-            className="absolute inset-0 w-full h-full object-cover rounded-xl"
+            className={`absolute inset-0 w-full h-full object-cover rounded-xl ${
+              isMobile ? "object-center" : ""
+            }`}
             initial={{
               opacity: 0,
               scale: 1.2,
@@ -68,7 +93,7 @@ const HeroSection = () => {
           />
         </AnimatePresence>
 
-        {/* ✨ Moving light streak for luxury sheen */}
+        {/* ✨ Moving light streak */}
         <motion.div
           className="absolute top-0 left-[-50%] w-[200%] h-full bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none"
           animate={{ x: ["-100%", "100%"] }}
@@ -85,7 +110,7 @@ const HeroSection = () => {
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        {/* 🎥 Parallax floating effect (whole section) */}
+        {/* 🎥 Parallax floating effect */}
         <motion.div
           className="absolute inset-0"
           animate={{

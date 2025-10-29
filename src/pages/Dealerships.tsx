@@ -6,16 +6,36 @@ import Perks from "@/components/Dealerships/Perks";
 import OurWork from "@/components/Dealerships/OurWorking";
 import Form from "@/components/Dealerships/Form";
 
-// ✅ Import your images
+// ✅ Desktop images
 import img12 from "@/assets/img12.jpg";
 import img10 from "@/assets/img10.jpg";
 import img11 from "@/assets/img11.jpg";
 import img2 from "@/assets/img2.jpg";
 
-const images = [img12, img10, img11, img2];
+// ✅ Mobile images
+import img3M from "@/assets/3M.png";
+import img4M from "@/assets/4M.png";
+import img5M from "@/assets/5M.png";
+import img6M from "@/assets/6M.png";
+import img7M from "@/assets/7M.png";
+import img8M from "@/assets/8M.png";
 
 const Dealerships = () => {
   const [index, setIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // ✅ Image arrays
+  const desktopImages = [img12, img10, img11, img2];
+  const mobileImages = [img3M, img4M, img5M, img6M, img7M, img8M];
+  const images = isMobile ? mobileImages : desktopImages;
+
+  // ✅ Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // ✅ Auto-change image every 5 seconds
   useEffect(() => {
@@ -23,7 +43,7 @@ const Dealerships = () => {
       setIndex((prev) => (prev + 1) % images.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [images.length]);
 
   // ✅ Slightly randomize direction for natural transitions
   const randomDir = () => (Math.random() > 0.5 ? 1 : -1);
@@ -34,17 +54,23 @@ const Dealerships = () => {
 
       {/* ✅ Hero Section with image slider */}
       <section className="relative w-full bg-[#F8F7E5] overflow-hidden">
-        {/* Top spacing for header */}
-        <div className="h-24 lg:h-28 bg-[#F8F7E5]"></div>
+        {/* ✅ Top gap for floating header */}
+        <div className="h-24 lg:h-30 bg-[#F8F7E5]"></div>
 
-        {/* Image slider */}
-        <div className="relative w-full h-[85vh] overflow-hidden perspective-[1500px]">
+        {/* ✅ Image slider container */}
+        <div
+          className={`relative overflow-hidden perspective-[1500px] ${
+            isMobile ? "w-full h-[65vh]" : "w-[200vh] h-[85vh]"
+          }`}
+        >
           <AnimatePresence mode="wait">
             <motion.img
               key={images[index]}
               src={images[index]}
               alt={`slide-${index}`}
-              className="absolute inset-0 w-full h-full object-cover rounded-xl"
+              className={`absolute inset-0 w-full h-full rounded-xl ${
+                isMobile ? "object-contain bg-[#F8F7E5]" : "object-cover"
+              }`}
               initial={{
                 opacity: 0,
                 scale: 1.2,
@@ -93,7 +119,7 @@ const Dealerships = () => {
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           />
 
-          {/* 🎥 Floating parallax motion */}
+          {/* 🎥 Parallax floating effect */}
           <motion.div
             className="absolute inset-0"
             animate={{

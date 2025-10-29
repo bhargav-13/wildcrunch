@@ -1,25 +1,40 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ✅ Import your images
+// ✅ Desktop Images
 import img2 from "@/assets/img2.jpg";
 import img8 from "@/assets/img8.jpg";
 
-
-const images = [img2, img8];
+// ✅ Mobile Images
+import img1M from "@/assets/1M.png";
+import img2M from "@/assets/2M.png";
 
 const HeroSection = () => {
   const [index, setIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
+  // ✅ Image sets
+  const desktopImages = [img2, img8];
+  const mobileImages = [img1M, img2M];
+  const images = isMobile ? mobileImages : desktopImages;
 
+  // ✅ Detect screen size
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // ✅ Auto change every 7 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setIndex((prev) => (prev + 1) % images.length);
     }, 7000);
     return () => clearInterval(interval);
-  }, []);
+  }, [images.length]);
 
-  // Slightly randomize direction for organic transitions
+  // ✅ Random direction for subtle animation
   const randomDir = () => (Math.random() > 0.5 ? 1 : -1);
 
   return (
@@ -28,13 +43,19 @@ const HeroSection = () => {
       <div className="h-24 lg:h-30 bg-[#F8F7E5]"></div>
 
       {/* ✅ Image slider container */}
-      <div className="relative w-[200vh] h-[85vh] overflow-hidden perspective-[1500px]">
+      <div
+        className={`relative overflow-hidden perspective-[1500px] ${
+          isMobile ? "w-full h-[70vh]" : "w-[200vh] h-[85vh]"
+        }`}
+      >
         <AnimatePresence mode="wait">
           <motion.img
             key={images[index]}
             src={images[index]}
             alt={`slide-${index}`}
-            className="absolute inset-0 w-full h-full object-cover"
+            className={`absolute inset-0 w-full h-full rounded-xl ${
+              isMobile ? "object-contain" : "object-cover"
+            }`}
             initial={{
               opacity: 0,
               scale: 1.2,
@@ -66,7 +87,7 @@ const HeroSection = () => {
           />
         </AnimatePresence>
 
-        {/* ✨ Moving light streak for luxury sheen */}
+        {/* ✨ Moving light streak */}
         <motion.div
           className="absolute top-0 left-[-50%] w-[200%] h-full bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none"
           animate={{ x: ["-100%", "100%"] }}
@@ -83,7 +104,7 @@ const HeroSection = () => {
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        {/* 🎥 Parallax floating effect (whole section) */}
+        {/* 🎥 Parallax floating effect */}
         <motion.div
           className="absolute inset-0"
           animate={{
