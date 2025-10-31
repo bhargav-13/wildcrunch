@@ -145,7 +145,8 @@ const CrunchEraSection = () => {
       </div>
 
       {/* Tilted background div (desktop only) */}
-      <div className="absolute top-[780px] left-[-150px] w-[1200px] h-[300px] bg-white transform -rotate-[35deg] sm:top-[1200px] sm:left-[-200px] sm:w-[2800px] sm:h-[400px] sm:-rotate-[10deg] origin-top-left z-0"></div>
+      <div className="hidden sm:block absolute top-[780px] left-[-150px] w-[1200px] h-[300px] bg-white transform -rotate-[35deg] sm:top-[1200px] sm:left-[-200px] sm:w-[2800px] sm:h-[400px] sm:-rotate-[10deg] origin-top-left z-0"></div>
+
 
       <div className="container mx-auto px-4 sm:px-6 relative z-10 mt-24">
         

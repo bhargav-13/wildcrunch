@@ -74,6 +74,8 @@ const AddressPage = () => {
     }
   }, [isAuthenticated, user, navigate, orderId]);
 
+  
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -238,7 +240,7 @@ const AddressPage = () => {
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">First name*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">First name</label>
                   <input
                     type="text"
                     name="firstName"
@@ -250,7 +252,7 @@ const AddressPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Last name*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">Last name</label>
                   <input
                     type="text"
                     name="lastName"
@@ -265,7 +267,7 @@ const AddressPage = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Email*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">Email</label>
                   <input
                     type="email"
                     name="email"
@@ -277,7 +279,7 @@ const AddressPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Contact Number*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">Contact Number</label>
                   <input
                     type="tel"
                     name="contactNumber"
@@ -298,7 +300,7 @@ const AddressPage = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Building name*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">Building name</label>
                   <input
                     type="text"
                     name="buildingName"
@@ -310,7 +312,7 @@ const AddressPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Block/flat/house No.*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">Block/flat/house No.</label>
                   <input
                     type="text"
                     name="blockHouseNo"
@@ -325,7 +327,7 @@ const AddressPage = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Street Number*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">Street Number</label>
                   <input
                     type="text"
                     name="streetNumber"
@@ -337,7 +339,7 @@ const AddressPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Area*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">Area</label>
                   <input
                     type="text"
                     name="area"
@@ -352,7 +354,7 @@ const AddressPage = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Zipcode*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">Zipcode</label>
                   <input
                     type="text"
                     name="zipcode"
@@ -364,7 +366,7 @@ const AddressPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">City*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">City</label>
                   <input
                     type="text"
                     name="city"
@@ -379,7 +381,7 @@ const AddressPage = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">State*</label>
+                  <label className="block text-sm font-medium mb-2 font-suez">State</label>
                   <input
                     type="text"
                     name="state"
