@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import LogoWC from "../assets/LogoWC.png"; 
 import Cart from "./cart";
+import { useCart } from "@/hooks/useCart";
 import img1 from "@/assets/1.png"
 import img2 from "@/assets/2.png"
 import img3 from "@/assets/3.png"
@@ -22,6 +23,7 @@ const Header = () => {
   const [pathData, setPathData] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+  const { totalItems } = useCart() || { totalItems: 0 };
   const { isAuthenticated, user, logout } = useAuth();
 
   // Generate ECG path only once when component mounts
@@ -213,13 +215,27 @@ const Header = () => {
                   </Button>
 
                   {/* Cart button - Only visible when authenticated */}
-                  <Button
-                    className="flex items-center gap-1.5 bg-[#F1B213] text-white px-3 sm:px-5 py-1.5 rounded-full text-xs font-semibold hover:bg-[#F8F7E5] hover:text-black"
-                    onClick={() => setCartOpen(true)}
-                  >
-                    <ShoppingCart className="h-5 w-5" />
-                    <span className="font-sfpro hidden sm:inline">CART</span>
-                  </Button>
+{/* Cart button - Only visible when authenticated */}
+<Button
+  className="relative flex items-center gap-1.5 bg-[#F1B213] text-white px-3 sm:px-5 py-1.5 rounded-full text-xs font-semibold 
+             hover:bg-[#F8F7E5] hover:text-black transition-all duration-200"
+  onClick={() => setCartOpen(true)}
+>
+  <ShoppingCart className="h-5 w-5" />
+  <span className="font-sfpro hidden sm:inline">CART</span>
+
+  {/* Item count badge */}
+  {totalItems > 0 && (
+    <span
+      className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-black text-[10px] font-bold 
+                 flex items-center justify-center border border-black 
+                 group-hover:bg-black group-hover:text-white transition-all duration-200"
+    >
+      {totalItems}
+    </span>
+  )}
+</Button>
+
 
                   {/* User - Only visible when authenticated */}
                   <Button
