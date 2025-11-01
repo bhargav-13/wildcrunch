@@ -124,24 +124,32 @@ const CrunchEraSection = () => {
         </div>
 
         {/* Features Grid */}
-        <div className="relative z-10 flex flex-wrap items-center justify-center gap-x-10 gap-y-12 md:gap-x-20 md:gap-y-16 max-w-7xl mx-auto">
-          {features.map((feature, index) => (
-            <motion.div
-              key={index}
-              className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left space-y-2 sm:space-y-0 sm:space-x-4 max-w-xs"
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: false, amount: 0.3 }}
-              transition={{ type: "spring", stiffness: 100, damping: 20, duration: 1.2, delay: index * 0.2 }}
-            >
-              <img src={feature.icon} alt={feature.title} className="w-12 h-12" />
-              <div>
-                <h3 className="text-xl font-suez text-[#325DE8]">{feature.title}</h3>
-                <p className="text-[#466DDF] font-jost">{feature.text}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+<div className="relative z-10 grid grid-cols-2 sm:grid-cols-2 md:flex flex-wrap items-center justify-center gap-x-10 gap-y-12 md:gap-x-20 md:gap-y-16 max-w-7xl mx-auto">
+  {features.map((feature, index) => (
+    <motion.div
+      key={index}
+      className={`flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left space-y-2 sm:space-y-0 sm:space-x-4 max-w-xs mx-auto
+        ${index === features.length - 1 ? "col-span-2 justify-self-center" : ""}`}
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: false, amount: 0.3 }}
+      transition={{
+        type: "spring",
+        stiffness: 100,
+        damping: 20,
+        duration: 1.2,
+        delay: index * 0.2,
+      }}
+    >
+      <img src={feature.icon} alt={feature.title} className="w-12 h-12" />
+      <div>
+        <h3 className="text-xl font-suez text-[#325DE8]">{feature.title}</h3>
+        <p className="text-[#466DDF] font-jost">{feature.text}</p>
+      </div>
+    </motion.div>
+  ))}
+</div>
+
       </div>
 
       {/* Tilted background div (desktop only) */}

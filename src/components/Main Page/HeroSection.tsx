@@ -36,7 +36,7 @@ const HeroSection = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setIndex((prev) => (prev + 1) % images.length);
-    }, 5000);
+    }, 4000);
     return () => clearInterval(interval);
   }, [images.length]);
 
@@ -46,7 +46,7 @@ const HeroSection = () => {
   return (
     <section className="relative w-full bg-[#F8F7E5] overflow-hidden">
       {/* ✅ Top gap for floating header */}
-      <div className="h-24 lg:h-30 bg-[#F8F7E5]"></div>
+      <div className="h-16 lg:h-30 bg-[#F8F7E5]"></div>
 
       {/* ✅ Image slider container */}
       <div
