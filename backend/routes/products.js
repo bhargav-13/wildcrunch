@@ -1,6 +1,7 @@
 import express from 'express';
 import Product from '../models/Product.js';
 import { protect, admin } from '../middleware/auth.js';
+import { upload, handleUploadError } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -92,16 +93,55 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// @route   POST /api/products
-// @desc    Create a product (Admin only)
+// @route   POST /api/products/upload
+// @desc    Upload product image to Cloudinary
 // @access  Private/Admin
-router.post('/', protect, admin, async (req, res) => {
+router.post('/upload', protect, admin, upload.single('image'), handleUploadError, async (req, res) => {
   try {
-    const product = await Product.create(req.body);
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided. Please upload an image.',
+      });
+    }
+
+    // Cloudinary URL is automatically available in req.file
+    res.status(200).json({
+      success: true,
+      message: 'Image uploaded successfully',
+      data: {
+        url: req.file.path, // Cloudinary URL
+        publicId: req.file.filename, // Cloudinary public ID for deletion
+        originalName: req.file.originalname,
+        size: req.file.size,
+        format: req.file.format,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// @route   POST /api/products
+// @desc    Create a product (Admin only, optionally with image upload)
+// @access  Private/Admin
+router.post('/', protect, admin, upload.single('image'), handleUploadError, async (req, res) => {
+  try {
+    // If image was uploaded, add Cloudinary URL to product data
+    const productData = req.body;
+    if (req.file) {
+      productData.imageSrc = req.file.path; // Cloudinary URL
+    }
+
+    const product = await Product.create(productData);
 
     res.status(201).json({
       success: true,
-      data: product
+      data: product,
+      imageUploaded: !!req.file
     });
   } catch (error) {
     res.status(500).json({
@@ -112,13 +152,19 @@ router.post('/', protect, admin, async (req, res) => {
 });
 
 // @route   PUT /api/products/:id
-// @desc    Update a product (Admin only)
+// @desc    Update a product (Admin only, optionally with image upload)
 // @access  Private/Admin
-router.put('/:id', protect, admin, async (req, res) => {
+router.put('/:id', protect, admin, upload.single('image'), handleUploadError, async (req, res) => {
   try {
+    // If image was uploaded, add Cloudinary URL to update data
+    const updateData = req.body;
+    if (req.file) {
+      updateData.imageSrc = req.file.path; // Cloudinary URL
+    }
+
     const product = await Product.findOneAndUpdate(
       { id: req.params.id },
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
 
@@ -131,7 +177,8 @@ router.put('/:id', protect, admin, async (req, res) => {
 
     res.json({
       success: true,
-      data: product
+      data: product,
+      imageUploaded: !!req.file
     });
   } catch (error) {
     res.status(500).json({
@@ -163,6 +210,35 @@ router.delete('/:id', protect, admin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message
+    });
+  }
+});
+
+// @route   DELETE /api/products/image/:publicId
+// @desc    Delete image from Cloudinary
+// @access  Private/Admin
+router.delete('/image/:publicId', protect, admin, async (req, res) => {
+  try {
+    const { cloudinary } = await import('../config/cloudinary.js');
+
+    // Delete image from Cloudinary
+    const result = await cloudinary.uploader.destroy(req.params.publicId);
+
+    if (result.result === 'ok') {
+      res.json({
+        success: true,
+        message: 'Image deleted successfully from Cloudinary',
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Failed to delete image. It may not exist.',
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
     });
   }
 });

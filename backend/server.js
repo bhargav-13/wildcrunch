@@ -4,12 +4,16 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import connectDB from './config/db.js';
 import errorHandler from './middleware/errorHandler.js';
+import { verifyCloudinaryConfig } from './config/cloudinary.js';
 
 // Load environment variables
 dotenv.config();
 
 // Connect to MongoDB
 connectDB();
+
+// Verify Cloudinary configuration
+verifyCloudinaryConfig();
 
 const app = express();
 

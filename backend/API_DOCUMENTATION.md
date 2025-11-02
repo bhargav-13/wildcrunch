@@ -274,18 +274,58 @@ Get all available product categories.
 
 ---
 
-### Create Product (Admin Only)
+### Upload Product Image (Admin Only)
 
-**POST** `/products`
+**POST** `/products/upload`
 
-Create a new product.
+Upload a product image to Cloudinary. Returns the Cloudinary URL to use in product creation/update.
 
 **Headers:**
 ```
 Authorization: Bearer {admin_token}
+Content-Type: multipart/form-data
 ```
 
-**Request Body:**
+**Request Body (FormData):**
+```
+image: [File] (Max size: 5MB, Formats: jpg, jpeg, png, webp, gif)
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Image uploaded successfully",
+  "data": {
+    "url": "https://res.cloudinary.com/your-cloud/image/upload/v1234567890/wildcrunch/products/abc123.jpg",
+    "publicId": "wildcrunch/products/abc123",
+    "originalName": "product-image.jpg",
+    "size": 245678,
+    "format": "jpg"
+  }
+}
+```
+
+**Notes:**
+- Images are automatically optimized and resized (max 1000x1000px)
+- Automatic WebP conversion for supported browsers
+- Stored in `wildcrunch/products` folder on Cloudinary
+
+---
+
+### Create Product (Admin Only)
+
+**POST** `/products`
+
+Create a new product. Can optionally include image upload in the same request.
+
+**Headers:**
+```
+Authorization: Bearer {admin_token}
+Content-Type: application/json OR multipart/form-data (if uploading image)
+```
+
+**Option 1: JSON Request (with existing image URL)**
 ```json
 {
   "id": "20",
@@ -294,11 +334,123 @@ Authorization: Bearer {admin_token}
   "price": "₹250",
   "priceNumeric": 250,
   "category": "Makhana",
-  "imageSrc": "/images/20.png",
+  "imageSrc": "https://res.cloudinary.com/your-cloud/image/upload/v123/wildcrunch/products/abc.jpg",
   "bgColor": "#FF5733",
   "description": "Product description",
   "ingredients": "Ingredients list",
   "stockQuantity": 50
+}
+```
+
+**Option 2: FormData Request (with image upload)**
+
+Send product data as form fields + image file:
+```
+id: "20"
+name: "New Product"
+weight: "100 gram"
+price: "₹250"
+priceNumeric: 250
+category: "Makhana"
+bgColor: "#FF5733"
+description: "Product description"
+ingredients: "Ingredients list"
+stockQuantity: 50
+image: [File]
+```
+
+**Response:** `201 Created`
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "mongo_id",
+    "id": "20",
+    "name": "New Product",
+    "imageSrc": "https://res.cloudinary.com/...",
+    ...
+  },
+  "imageUploaded": true
+}
+```
+
+---
+
+### Update Product (Admin Only)
+
+**PUT** `/products/:id`
+
+Update an existing product. Can optionally upload new image.
+
+**Headers:**
+```
+Authorization: Bearer {admin_token}
+Content-Type: application/json OR multipart/form-data (if uploading image)
+```
+
+**Request Body:**
+Same format as Create Product (JSON or FormData with optional image)
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "mongo_id",
+    "id": "20",
+    "name": "Updated Product",
+    ...
+  },
+  "imageUploaded": false
+}
+```
+
+---
+
+### Delete Product Image (Admin Only)
+
+**DELETE** `/products/image/:publicId`
+
+Delete an image from Cloudinary using its public ID.
+
+**Headers:**
+```
+Authorization: Bearer {admin_token}
+```
+
+**Example:**
+```
+DELETE /products/image/wildcrunch%2Fproducts%2Fabc123
+```
+
+**Note:** URL-encode the publicId if it contains slashes (e.g., `wildcrunch/products/abc123` becomes `wildcrunch%2Fproducts%2Fabc123`)
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Image deleted successfully from Cloudinary"
+}
+```
+
+---
+
+### Delete Product (Admin Only)
+
+**DELETE** `/products/:id`
+
+Delete a product by ID.
+
+**Headers:**
+```
+Authorization: Bearer {admin_token}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Product deleted successfully"
 }
 ```
 
