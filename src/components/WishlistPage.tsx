@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { X, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
 import { useWishlist } from "@/hooks/useWishlist";
-import { useCart } from "@/hooks/useCart";
+import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import localProducts from "@/data/product";
 

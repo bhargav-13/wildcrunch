@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Minus, Plus, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../Header';
-import { useCart } from '@/hooks/useCart';
+import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import localProducts from '@/data/product';

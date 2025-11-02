@@ -10,7 +10,7 @@ import Others from "./Others.tsx";
 import Footer from "../Footer.tsx";
 import Header from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCart } from "@/hooks/useCart";
+import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/hooks/useWishlist";
 import { toast } from "sonner";
 

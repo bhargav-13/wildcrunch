@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useProducts } from "@/hooks/useProducts";
-import { useCart } from "@/hooks/useCart";
+import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import localProducts from "@/data/product";
@@ -13,6 +13,7 @@ import localProducts from "@/data/product";
 const categories = [
   "All Products",
   "Makhana",
+  "Plain Makhana",
   "Protein Puffs",
   "Popcorn",
   "Combo",

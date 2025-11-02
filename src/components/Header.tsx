@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
-import LogoWC from "../assets/LogoWC.png"; 
+import LogoWC from "../assets/LogoWC.png";
 import Cart from "./cart";
 import img1 from "@/assets/1.png"
 import img2 from "@/assets/2.png"
@@ -23,6 +24,7 @@ const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user, logout } = useAuth();
+  const { totalItems } = useCart();
 
   // Generate ECG path only once when component mounts
   useEffect(() => {
@@ -214,11 +216,22 @@ const Header = () => {
 
                   {/* Cart button - Only visible when authenticated */}
                   <Button
-                    className="flex items-center gap-1.5 bg-[#F1B213] text-white px-3 sm:px-5 py-1.5 rounded-full text-xs font-semibold hover:bg-[#F8F7E5] hover:text-black"
+                    className="relative flex items-center gap-1.5 bg-[#F1B213] text-white px-3 sm:px-5 py-1.5 rounded-full text-xs font-semibold hover:bg-[#F8F7E5] hover:text-black"
                     onClick={() => setCartOpen(true)}
                   >
                     <ShoppingCart className="h-5 w-5" />
                     <span className="font-sfpro hidden sm:inline">CART</span>
+                    {/* Cart notification badge */}
+                    {totalItems > 0 && (
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white"
+                      >
+                        {totalItems > 99 ? '99+' : totalItems}
+                      </motion.span>
+                    )}
                   </Button>
 
                   {/* User - Only visible when authenticated */}

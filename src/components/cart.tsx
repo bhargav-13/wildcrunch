@@ -1,7 +1,7 @@
 import { X, ChevronLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { useCart } from "@/hooks/useCart";
+import { useCart } from "@/contexts/CartContext";
 import localProducts from "@/data/product";
 
 interface CartProps {
