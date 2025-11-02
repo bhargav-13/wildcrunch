@@ -421,26 +421,44 @@ const InProduct = () => {
                 </motion.div>
               </motion.div>
               {/* Middle Column (Product Image) */}
-              <div className="flex-1 flex justify-center items-center relative min-w-0">
-                <motion.div
-                  key={`modal-image-container-${selectedProduct.id}`}
-                  layoutId={`product-image-container-${selectedProduct.id}`}
-                  className="rounded-[80px] border-dashed border-2 border-white p-6 h-[500px]"
-                >
-                  <div className="rounded-[80px] border border-white flex justify-center items-center h-[450px]">
-                    <motion.img
-                      key={`modal-image-${selectedProduct.id}`}
-                      layoutId={`product-image-${selectedProduct.id}`}
-                      src={selectedProduct.imageSrc}
-                      alt={selectedProduct.name}
-                      className="h-[400px]"
-                      initial={{ scale: 1 }}
-                      animate={{ scale: 1.6 }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  </div>
-                </motion.div>
-              </div>
+<div className="flex-1 flex flex-col items-center relative min-w-0">
+  {/* ✅ Main Image Section */}
+  <motion.div
+    key={`modal-image-container-${selectedProduct.id}`}
+    layoutId={`product-image-container-${selectedProduct.id}`}
+    className="rounded-[40px] border-dashed border-2 border-white p-6 h-[500px] flex justify-center items-center"
+  >
+    <div className="rounded-[30px] border border-white flex justify-center items-center h-[450px]">
+      <motion.img
+        key={`modal-image-${selectedProduct.id}`}
+        layoutId={`product-image-${selectedProduct.id}`}
+        src={selectedProduct.imageSrc}
+        alt={selectedProduct.name}
+        className="h-[400px]"
+        initial={{ scale: 1 }}
+        animate={{ scale: 1.6 }}
+        transition={{ duration: 0.3 }}
+      />
+    </div>
+  </motion.div>
+
+  {/* ✅ Thumbnail Section (same width, reduced height) */}
+  <div className="mt-2 rounded-[40px] border-dashed border-2 border-white p-3 h-[160px] flex justify-center items-center gap-4 w-[calc(100%-0rem)] max-w-[600px]">
+    {[1, 2, 3, 4].map((num) => (
+      <div
+        key={num}
+        className="rounded-[25px] border border-white flex justify-center items-center h-[100px] w-[100px] overflow-hidden"
+      >
+        <img
+          src={selectedProduct.imageSrc}
+          alt={`Thumbnail ${num}`}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    ))}
+  </div>
+</div>
+
               {/* Right Column */}{" "}
               <motion.div
                 className="flex-1 flex flex-col justify-between text-white min-w-0"

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 // ✅ Desktop Image
-import img6 from "@/assets/img6.jpg";
+import img6 from "@/assets/img6.png";
 
 // ✅ Mobile Image
 import img9M from "@/assets/9M.png";

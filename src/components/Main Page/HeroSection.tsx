@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ✅ Desktop Images
-import img2 from "@/assets/img2.jpg";
+import img2 from "@/assets/img2.png";
 import img10 from "@/assets/img10.jpg";
 import img11 from "@/assets/img11.jpg";
-import img12 from "@/assets/img12.jpg";
+import img12 from "@/assets/img12.png";
 
 // ✅ Mobile Images (3M to 8M)
 import img3M from "@/assets/3M.png";
@@ -46,12 +46,12 @@ const HeroSection = () => {
   return (
     <section className="relative w-full bg-[#F8F7E5] overflow-hidden">
       {/* ✅ Top gap for floating header */}
-      <div className="h-16 lg:h-30 bg-[#F8F7E5]"></div>
+      <div className="h-[100px] lg:h-[85px] lg:h-30 bg-[#F8F7E5]"></div>
 
       {/* ✅ Image slider container */}
       <div
         className={`relative overflow-hidden perspective-[1500px] ${
-          isMobile ? "w-full h-[60vh]" : "w-[200vh] h-[85vh]"
+          isMobile ? "w-full h-[55vh]" : "w-[200vh] h-[85vh]"
         }`}
       >
         <AnimatePresence mode="wait">
@@ -59,8 +59,8 @@ const HeroSection = () => {
             key={images[index]}
             src={images[index]}
             alt={`slide-${index}`}
-            className={`absolute inset-0 w-full h-full object-cover rounded-xl ${
-              isMobile ? "object-center" : ""
+            className={`absolute inset-0 w-full h-full ${
+              isMobile ? "object-contain bg-[#F8F7E5]" : "object-cover"
             }`}
             initial={{
               opacity: 0,

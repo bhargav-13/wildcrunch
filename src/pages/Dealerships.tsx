@@ -6,13 +6,13 @@ import Perks from "@/components/Dealerships/Perks";
 import OurWork from "@/components/Dealerships/OurWorking";
 import Form from "@/components/Dealerships/Form";
 
-// ✅ Desktop images
-import img12 from "@/assets/img12.jpg";
+// ✅ Desktop Images
+import img2 from "@/assets/img2.png";
 import img10 from "@/assets/img10.jpg";
 import img11 from "@/assets/img11.jpg";
-import img2 from "@/assets/img2.jpg";
+import img12 from "@/assets/img12.png";
 
-// ✅ Mobile images
+// ✅ Mobile Images (3M to 8M)
 import img3M from "@/assets/3M.png";
 import img4M from "@/assets/4M.png";
 import img5M from "@/assets/5M.png";
@@ -55,12 +55,12 @@ const Dealerships = () => {
       {/* ✅ Hero Section with image slider */}
       <section className="relative w-full bg-[#F8F7E5] overflow-hidden">
         {/* ✅ Top gap for floating header */}
-        <div className="h-24 lg:h-30 bg-[#F8F7E5]"></div>
+        <div className="h-[100px] lg:h-[85px] lg:h-30 bg-[#F8F7E5]"></div>
 
         {/* ✅ Image slider container */}
         <div
           className={`relative overflow-hidden perspective-[1500px] ${
-            isMobile ? "w-full h-[65vh]" : "w-[200vh] h-[85vh]"
+            isMobile ? "w-full h-[55vh]" : "w-[200vh] h-[85vh]"
           }`}
         >
           <AnimatePresence mode="wait">
@@ -68,7 +68,7 @@ const Dealerships = () => {
               key={images[index]}
               src={images[index]}
               alt={`slide-${index}`}
-              className={`absolute inset-0 w-full h-full rounded-xl ${
+              className={`absolute inset-0 w-full h-full ${
                 isMobile ? "object-contain bg-[#F8F7E5]" : "object-cover"
               }`}
               initial={{

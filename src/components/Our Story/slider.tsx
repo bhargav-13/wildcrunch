@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ✅ Desktop Images
-import img2 from "@/assets/img2.jpg";
-import img8 from "@/assets/img8.jpg";
+import img2 from "@/assets/img2.png";
+import img8 from "@/assets/img8.png";
 
 // ✅ Mobile Images
 import img1M from "@/assets/1M.png";
@@ -53,7 +53,7 @@ const HeroSection = () => {
             key={images[index]}
             src={images[index]}
             alt={`slide-${index}`}
-            className={`absolute inset-0 w-full h-full rounded-xl ${
+            className={`absolute inset-0 w-full h-full ${
               isMobile ? "object-contain" : "object-cover"
             }`}
             initial={{
