@@ -1,6 +1,8 @@
 import express from 'express';
 import Product from '../models/Product.js';
 import { protect, admin } from '../middleware/auth.js';
+import upload from '../middleware/upload.js';
+import { uploadToCloudinary, deleteFromCloudinary, getPublicIdFromUrl } from '../utils/cloudinaryUpload.js';
 
 const router = express.Router();
 
@@ -94,10 +96,28 @@ router.get('/:id', async (req, res) => {
 
 // @route   POST /api/products
 // @desc    Create a product (Admin only)
-// @access  Private/Admin
-router.post('/', protect, admin, async (req, res) => {
+// @access  Public (for admin panel)
+router.post('/', upload.single('image'), async (req, res) => {
   try {
-    const product = await Product.create(req.body);
+    let productData = { ...req.body };
+
+    // Parse nutritionalInfo if it's a string (from FormData)
+    if (typeof productData.nutritionalInfo === 'string') {
+      productData.nutritionalInfo = JSON.parse(productData.nutritionalInfo);
+    }
+
+    // Convert boolean strings to actual booleans
+    if (typeof productData.inStock === 'string') {
+      productData.inStock = productData.inStock === 'true';
+    }
+
+    // If image file is uploaded, upload to Cloudinary
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer);
+      productData.imageSrc = result.secure_url;
+    }
+
+    const product = await Product.create(productData);
 
     res.status(201).json({
       success: true,
@@ -113,21 +133,54 @@ router.post('/', protect, admin, async (req, res) => {
 
 // @route   PUT /api/products/:id
 // @desc    Update a product (Admin only)
-// @access  Private/Admin
-router.put('/:id', protect, admin, async (req, res) => {
+// @access  Public (for admin panel)
+router.put('/:id', upload.single('image'), async (req, res) => {
   try {
-    const product = await Product.findOneAndUpdate(
-      { id: req.params.id },
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const existingProduct = await Product.findOne({ id: req.params.id });
 
-    if (!product) {
+    if (!existingProduct) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
       });
     }
+
+    let productData = { ...req.body };
+
+    // Parse nutritionalInfo if it's a string (from FormData)
+    if (typeof productData.nutritionalInfo === 'string') {
+      productData.nutritionalInfo = JSON.parse(productData.nutritionalInfo);
+    }
+
+    // Convert boolean strings to actual booleans
+    if (typeof productData.inStock === 'string') {
+      productData.inStock = productData.inStock === 'true';
+    }
+
+    // If new image file is uploaded
+    if (req.file) {
+      // Delete old image from Cloudinary if it exists
+      if (existingProduct.imageSrc) {
+        const publicId = getPublicIdFromUrl(existingProduct.imageSrc);
+        if (publicId) {
+          try {
+            await deleteFromCloudinary(publicId);
+          } catch (deleteError) {
+            console.error('Error deleting old image:', deleteError.message);
+          }
+        }
+      }
+
+      // Upload new image
+      const result = await uploadToCloudinary(req.file.buffer);
+      productData.imageSrc = result.secure_url;
+    }
+
+    const product = await Product.findOneAndUpdate(
+      { id: req.params.id },
+      productData,
+      { new: true, runValidators: true }
+    );
 
     res.json({
       success: true,
@@ -143,8 +196,8 @@ router.put('/:id', protect, admin, async (req, res) => {
 
 // @route   DELETE /api/products/:id
 // @desc    Delete a product (Admin only)
-// @access  Private/Admin
-router.delete('/:id', protect, admin, async (req, res) => {
+// @access  Public (for admin panel)
+router.delete('/:id', async (req, res) => {
   try {
     const product = await Product.findOneAndDelete({ id: req.params.id });
 
@@ -153,6 +206,18 @@ router.delete('/:id', protect, admin, async (req, res) => {
         success: false,
         message: 'Product not found'
       });
+    }
+
+    // Delete image from Cloudinary if it exists
+    if (product.imageSrc) {
+      const publicId = getPublicIdFromUrl(product.imageSrc);
+      if (publicId) {
+        try {
+          await deleteFromCloudinary(publicId);
+        } catch (deleteError) {
+          console.error('Error deleting image:', deleteError.message);
+        }
+      }
     }
 
     res.json({

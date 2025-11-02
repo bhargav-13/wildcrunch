@@ -18,9 +18,25 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// CORS configuration
+// CORS configuration - Allow multiple origins
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3000', // Admin panel
+  'http://localhost:5173', // Main frontend
+  'http://localhost:8080'  // Alternative frontend
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -31,6 +47,7 @@ import cartRoutes from './routes/cart.js';
 import wishlistRoutes from './routes/wishlist.js';
 import orderRoutes from './routes/orders.js';
 import paymentRoutes from './routes/payment.js';
+import couponRoutes from './routes/coupons.js';
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -39,6 +56,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/coupons', couponRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -61,7 +79,8 @@ app.get('/', (req, res) => {
       cart: '/api/cart',
       wishlist: '/api/wishlist',
       orders: '/api/orders',
-      payment: '/api/payment'
+      payment: '/api/payment',
+      coupons: '/api/coupons'
     }
   });
 });
