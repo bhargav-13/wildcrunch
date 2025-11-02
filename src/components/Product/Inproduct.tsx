@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Heart, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
@@ -14,6 +15,7 @@ import { useWishlist } from "@/hooks/useWishlist";
 import { toast } from "sonner";
 
 const InProduct = () => {
+  const [rotation, setRotation] = useState(0);
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -22,6 +24,10 @@ const InProduct = () => {
 
   // Find the product by ID
   const selectedProduct = products.find((product) => product.id === id);
+
+    const handleRotate = (direction) => {
+    setRotation((prev) => prev + (direction === "right" ? 90 : -90));
+  };
 
   // State management
   const [selectedPack, setSelectedPack] = useState<'1' | '2' | '4'>('1'); // Default to individual
@@ -180,29 +186,70 @@ const InProduct = () => {
   {/* Redesigned Product Image + Pack Options */}
   <div className="flex flex-col items-center gap-6 mb-10">
     {/* Product Image with Decorative Borders */}
-    <motion.div
-      className="relative w-[220px] sm:w-[250px]"
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: 0.6, duration: 0.5 }}
-    >
-      {/* Outer dashed border */}
-      <div className="absolute inset-0 border-2 border-dashed border-white rounded-[40px] translate-x-3 translate-y-3"></div>
+<div className="relative flex items-center justify-center gap-3">
+      {/* ✅ Left Arrow */}
+      <button
+        onClick={() => handleRotate("left")}
+        className="rounded-[12px] border-2 border-dashed border-white p-2 bg-black/30 hover:bg-white/10 transition absolute left-[-65px] z-10"
+      >
+        <ChevronLeft className="w-6 h-6 text-white" />
+      </button>
 
-      {/* Inner solid border */}
-      <div className="relative border border-white rounded-[40px] p-4 bg-black/10 backdrop-blur-sm flex justify-center items-center">
-        <motion.img
-          key={`modal-image-${selectedProduct.id}`}
-          layoutId={`product-image-${selectedProduct.id}`}
-          src={selectedProduct.imageSrc}
-          alt={selectedProduct.name}
-          className="rounded-[30px] w-[220px] h-[200px] sm:w-[250px] sm:h-[230px] object-contain"
-          initial={{ scale: 1 }}
-          animate={{ scale: 1.2 }}
-          transition={{ duration: 0.3 }}
-        />
-      </div>
-    </motion.div>
+      {/* ✅ Main Image Container (Your Original Code) */}
+      <motion.div
+        className="relative w-[220px] sm:w-[250px]"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.6, duration: 0.5 }}
+      >
+        {/* Outer dashed border */}
+        <div className="absolute inset-0 border-2 border-dashed border-white rounded-[40px] translate-x-3 translate-y-3 overflow-hidden"></div>
+
+        {/* Inner solid border */}
+        <div className="relative border border-white rounded-[40px] p-4 bg-black/10 backdrop-blur-sm flex justify-center items-center overflow-hidden perspective-[800px]">
+          <motion.div
+            style={{
+              transformStyle: "preserve-3d",
+            }}
+            animate={{
+              rotateY: rotation,
+            }}
+            transition={{
+              duration: 1,
+              ease: "easeInOut",
+            }}
+            className="relative w-[200px] h-[180px]"
+          >
+            {/* 4 Cube Faces */}
+            {[0, 90, 180, 270].map((angle, i) => (
+              <div
+                key={i}
+                className="absolute w-full h-full rounded-[30px] border border-white flex justify-center items-center"
+                style={{
+                  transform: `rotateY(${angle}deg) translateZ(100px)`,
+                  backfaceVisibility: "hidden",
+                }}
+              >
+                <img
+                  key={`modal-image-${selectedProduct.id}-${i}`}
+                  src={selectedProduct.imageSrc}
+                  alt={selectedProduct.name}
+                  className="rounded-[30px] w-full h-full object-contain"
+                />
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      </motion.div>
+
+      {/* ✅ Right Arrow */}
+      <button
+        onClick={() => handleRotate("right")}
+        className="rounded-[12px] border-2 border-dashed border-white p-2 bg-black/30 hover:bg-white/10 transition absolute right-[-75px] z-10"
+      >
+        <ChevronRight className="w-6 h-6 text-white" />
+      </button>
+    </div>
 
     {/* Pack Selection */}
     <motion.div
@@ -421,44 +468,61 @@ const InProduct = () => {
                 </motion.div>
               </motion.div>
               {/* Middle Column (Product Image) */}
-<div className="flex-1 flex flex-col items-center relative min-w-0">
-  {/* ✅ Main Image Section */}
-  <motion.div
-    key={`modal-image-container-${selectedProduct.id}`}
-    layoutId={`product-image-container-${selectedProduct.id}`}
-    className="rounded-[40px] border-dashed border-2 border-white p-6 h-[500px] flex justify-center items-center"
-  >
-    <div className="rounded-[30px] border border-white flex justify-center items-center h-[450px]">
-      <motion.img
-        key={`modal-image-${selectedProduct.id}`}
-        layoutId={`product-image-${selectedProduct.id}`}
-        src={selectedProduct.imageSrc}
-        alt={selectedProduct.name}
-        className="h-[400px]"
-        initial={{ scale: 1 }}
-        animate={{ scale: 1.6 }}
-        transition={{ duration: 0.3 }}
-      />
-    </div>
-  </motion.div>
-
-  {/* ✅ Thumbnail Section (same width, reduced height) */}
-  <div className="mt-2 rounded-[40px] border-dashed border-2 border-white p-3 h-[160px] flex justify-center items-center gap-4 w-[calc(100%-0rem)] max-w-[600px]">
-    {[1, 2, 3, 4].map((num) => (
-      <div
-        key={num}
-        className="rounded-[25px] border border-white flex justify-center items-center h-[100px] w-[100px] overflow-hidden"
-      >
-        <img
-          src={selectedProduct.imageSrc}
-          alt={`Thumbnail ${num}`}
-          className="h-full w-full object-cover"
-        />
+ <div className="flex-1 flex flex-col items-center relative min-w-0">
+      {/* ✅ Main Cube Container */}
+      <div className="rounded-[30px] border-dashed border-2 border-white p-6 h-[500px] flex justify-center items-center perspective-[1200px] overflow-hidden">
+        <motion.div
+          style={{
+            transformStyle: "preserve-3d",
+          }}
+          animate={{
+            rotateY: rotation,
+          }}
+          transition={{
+            duration: 1,
+            ease: "easeInOut",
+          }}
+          className="relative w-[350px] h-[450px]"
+        >
+          {/* Cube Faces */}
+          {[0, 90, 180, 270].map((angle, index) => (
+            <div
+              key={index}
+              className="absolute w-full h-full rounded-[30px] border border-white flex justify-center items-center"
+              style={{
+                transform: `rotateY(${angle}deg) translateZ(210px)`,
+                backfaceVisibility: "hidden",
+              }}
+            >
+              <img
+                src={selectedProduct.imageSrc}
+                alt={`Cube side ${index}`}
+                className="h-full w-full object-cover rounded-[55px]"
+              />
+            </div>
+          ))}
+        </motion.div>
       </div>
-    ))}
-  </div>
-</div>
 
+      {/* ✅ Arrow Controls */}
+      <div className="mt-6 flex items-center justify-center gap-6">
+        {/* Left Arrow */}
+        <button
+          onClick={() => handleRotate("left")}
+          className="rounded-[20px] border-2 border-dashed border-white p-3 hover:bg-white/10 transition"
+        >
+          <ChevronLeft className="w-8 h-8 text-white" />
+        </button>
+
+        {/* Right Arrow */}
+        <button
+          onClick={() => handleRotate("right")}
+          className="rounded-[20px] border-2 border-dashed border-white p-3 hover:bg-white/10 transition"
+        >
+          <ChevronRight className="w-8 h-8 text-white" />
+        </button>
+      </div>
+    </div>
               {/* Right Column */}{" "}
               <motion.div
                 className="flex-1 flex flex-col justify-between text-white min-w-0"
