@@ -328,7 +328,7 @@ const CrunchEraSection = () => {
   href="/products"
   className="font-sfpro text-xs sm:text-sm uppercase tracking-wide px-6 sm:px-8 py-2 sm:py-3 border border-[#C06441] text-[#C06441] rounded-full hover:bg-[#F1B213] hover:border-[#F1B213] hover:text-white transition-colors inline-block"
 >
-  Explore More
+  explore All Products
 </a>
 
         </div>

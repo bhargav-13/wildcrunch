@@ -59,6 +59,7 @@ export const usePayment = () => {
         order_id: razorpayOrderId,
         handler: async (response: any) => {
           try {
+            setLoading(true);
             // Verify payment and update order
             const verifyResponse = await paymentAPI.verifyPayment({
               razorpay_order_id: response.razorpay_order_id,
@@ -68,11 +69,14 @@ export const usePayment = () => {
             });
 
             if (verifyResponse.data.success) {
-              onSuccess(verifyResponse.data.data);
+              // Ensure loading state is maintained during redirect
+              await onSuccess(verifyResponse.data.data);
             } else {
+              setLoading(false);
               onFailure(new Error('Payment verification failed'));
             }
           } catch (err: any) {
+            setLoading(false);
             onFailure(err);
           }
         },

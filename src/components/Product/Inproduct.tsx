@@ -540,7 +540,7 @@ const InProduct = () => {
                   {" "}
                   <h3 className="font-suez text-3xl mb-2 text-white break-words">
                     {" "}
-                    Discover our Makhana{" "}
+                    Discover our {" "}
                   </h3>{" "}
                   <p className="font-suez text-3xl xl:text-7xl text-[#212121] break-words">
                     {" "}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Plus } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../Header';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +15,9 @@ const AddressPage = () => {
   const { isAuthenticated, user } = useAuth();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -45,23 +48,37 @@ const AddressPage = () => {
       return;
     }
 
-    // Fetch order details
-    const fetchOrder = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await ordersAPI.getById(orderId);
-        if (response.data.success) {
-          setOrder(response.data.data);
+
+        // Fetch order details
+        const orderResponse = await ordersAPI.getById(orderId);
+        if (orderResponse.data.success) {
+          setOrder(orderResponse.data.data);
+        }
+
+        // Fetch user profile with saved addresses
+        const profileResponse = await authAPI.getProfile();
+        if (profileResponse.data.success && profileResponse.data.data.addresses) {
+          const addresses = profileResponse.data.data.addresses;
+          setSavedAddresses(addresses);
+
+          // Auto-select default address if available
+          const defaultAddress = addresses.find((addr: any) => addr.isDefault);
+          if (defaultAddress && !showNewAddressForm) {
+            setSelectedAddressId(defaultAddress._id);
+          }
         }
       } catch (error: any) {
-        toast.error('Failed to fetch order');
-        navigate('/cart');
+        toast.error('Failed to fetch data');
+        console.error('Fetch error:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOrder();
+    fetchData();
 
     // Pre-fill email if available
     if (user?.email) {
@@ -70,6 +87,7 @@ const AddressPage = () => {
         email: user.email,
         firstName: user.name?.split(' ')[0] || '',
         lastName: user.name?.split(' ')[1] || '',
+        contactNumber: user.phone || '',
       }));
     }
   }, [isAuthenticated, user, navigate, orderId]);
@@ -82,47 +100,84 @@ const AddressPage = () => {
     }));
   };
 
+  const handleAddressSelect = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    setShowNewAddressForm(false);
+  };
+
+  const handleNewAddress = () => {
+    setSelectedAddressId(null);
+    setShowNewAddressForm(true);
+  };
+
   const handleNextStep = async () => {
-    // Validate required fields
-    const requiredFields = [
-      { field: 'firstName', label: 'First name' },
-      { field: 'lastName', label: 'Last name' },
-      { field: 'email', label: 'Email' },
-      { field: 'contactNumber', label: 'Contact number' },
-      { field: 'buildingName', label: 'Building name' },
-      { field: 'blockHouseNo', label: 'Block/flat/house number' },
-      { field: 'streetNumber', label: 'Street number' },
-      { field: 'area', label: 'Area' },
-      { field: 'zipcode', label: 'Zipcode' },
-      { field: 'city', label: 'City' },
-      { field: 'state', label: 'State' },
-    ];
-
-    for (const { field, label } of requiredFields) {
-      if (!formData[field as keyof typeof formData]) {
-        toast.error(`${label} is required`);
-        return;
-      }
-    }
-
-    if (!formData.privacyPolicy) {
-      toast.error('Please accept the privacy policy');
-      return;
-    }
-
-    if (!formData.generalConditions) {
-      toast.error('Please accept the general conditions');
-      return;
-    }
-
     if (!orderId) {
       toast.error('Order ID not found');
       return;
     }
 
-    try {
-      // Prepare shipping address
-      const shippingAddress = {
+    let shippingAddress;
+
+    // If using saved address
+    if (selectedAddressId && !showNewAddressForm) {
+      const selectedAddress = savedAddresses.find(addr => addr._id === selectedAddressId);
+      if (!selectedAddress) {
+        toast.error('Please select an address');
+        return;
+      }
+
+      // Validate privacy policy and general conditions
+      if (!formData.privacyPolicy) {
+        toast.error('Please accept the privacy policy');
+        return;
+      }
+
+      if (!formData.generalConditions) {
+        toast.error('Please accept the general conditions');
+        return;
+      }
+
+      shippingAddress = {
+        fullName: selectedAddress.name,
+        email: formData.email || user?.email,
+        phone: selectedAddress.phone,
+        address: `${selectedAddress.addressLine1}${selectedAddress.addressLine2 ? ', ' + selectedAddress.addressLine2 : ''}`,
+        area: selectedAddress.area || '',
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        pincode: selectedAddress.pincode,
+      };
+    } else {
+      // Using new address form - only validate essential fields
+      const requiredFields = [
+        { field: 'firstName', label: 'First name' },
+        { field: 'lastName', label: 'Last name' },
+        { field: 'email', label: 'Email' },
+        { field: 'contactNumber', label: 'Contact number' },
+        { field: 'area', label: 'Area' },
+        { field: 'zipcode', label: 'Zipcode' },
+        { field: 'city', label: 'City' },
+        { field: 'state', label: 'State' },
+      ];
+
+      for (const { field, label } of requiredFields) {
+        if (!formData[field as keyof typeof formData]) {
+          toast.error(`${label} is required`);
+          return;
+        }
+      }
+
+      if (!formData.privacyPolicy) {
+        toast.error('Please accept the privacy policy');
+        return;
+      }
+
+      if (!formData.generalConditions) {
+        toast.error('Please accept the general conditions');
+        return;
+      }
+
+      shippingAddress = {
         fullName: `${formData.firstName} ${formData.lastName}`,
         email: formData.email,
         phone: formData.contactNumber,
@@ -132,26 +187,31 @@ const AddressPage = () => {
         state: formData.state,
         pincode: formData.zipcode,
       };
+    }
 
+    try {
       // Update order with shipping address (Step 2)
       const response = await ordersAPI.updateAddress(orderId, shippingAddress);
-      
+
       if (response.data.success) {
-        // Also save address to user profile for future use
-        try {
-          await authAPI.addAddress({
-            name: shippingAddress.fullName,
-            phone: shippingAddress.phone,
-            addressLine1: `${formData.blockHouseNo}, ${formData.buildingName}`,
-            addressLine2: formData.streetNumber,
-            city: formData.city,
-            state: formData.state,
-            pincode: formData.zipcode,
-            isDefault: true
-          });
-        } catch (err) {
-          // Ignore profile save error, continue with checkout
-          console.log('Failed to save to profile, but continuing checkout');
+        // Save new address to profile only if it's a new address
+        if (showNewAddressForm && !selectedAddressId) {
+          try {
+            await authAPI.addAddress({
+              name: shippingAddress.fullName,
+              phone: shippingAddress.phone,
+              addressLine1: `${formData.blockHouseNo}, ${formData.buildingName}`,
+              addressLine2: formData.streetNumber,
+              area: formData.area,
+              city: formData.city,
+              state: formData.state,
+              pincode: formData.zipcode,
+              isDefault: savedAddresses.length === 0 // Make default if first address
+            });
+          } catch (err) {
+            // Ignore profile save error, continue with checkout
+            console.log('Failed to save to profile, but continuing checkout');
+          }
         }
 
         toast.success('Address saved successfully!');
@@ -186,6 +246,18 @@ const AddressPage = () => {
     { name: 'Payment', completed: false, active: false },
     { name: 'Confirm', completed: false, active: false },
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F8F7E5]">
+        <Header />
+        <div className="flex flex-col justify-center items-center h-screen">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#F1B213] mb-4"></div>
+          <p className="text-xl font-suez text-black">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F7E5] font-jost">
@@ -229,196 +301,266 @@ const AddressPage = () => {
 
         {/* Main Content */}
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
-          {/* Left Side - Personal Information & Shipping Address (8 columns) */}
+          {/* Left Side - Address Selection (8 columns) */}
           <div className="lg:col-span-8">
-            {/* Personal Information */}
-            <div className="mb-8">
-              <h1 className="text-2xl lg:text-3xl font-bold mb-6 text-black font-suez">Personal Information</h1>
-              <div className="border-b border-dashed border-black mb-6 w-full"></div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">First name*</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    placeholder="First Name"
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Last name*</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    placeholder="Last Name"
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
-                  />
+            {/* Saved Addresses */}
+            {savedAddresses.length > 0 && !showNewAddressForm && (
+              <div className="mb-8">
+                <h1 className="text-2xl lg:text-3xl font-bold mb-6 text-black font-suez">Select Delivery Address</h1>
+                <div className="border-b border-dashed border-black mb-6 w-full"></div>
+
+                <div className="space-y-4">
+                  {savedAddresses.map((address) => (
+                    <div
+                      key={address._id}
+                      onClick={() => handleAddressSelect(address._id)}
+                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        selectedAddressId === address._id
+                          ? 'border-[#F1B213] bg-[#F1B213]/10'
+                          : 'border-gray-300 hover:border-[#F1B213]/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-suez font-bold text-lg">{address.name}</span>
+                            {address.isDefault && (
+                              <span className="bg-[#F1B213] text-white text-xs px-2 py-1 rounded-full">Default</span>
+                            )}
+                          </div>
+                          <p className="text-sm font-jost text-gray-700">{address.phone}</p>
+                          <p className="text-sm font-jost text-gray-700 mt-1">
+                            {address.addressLine1}
+                            {address.addressLine2 && `, ${address.addressLine2}`}
+                          </p>
+                          <p className="text-sm font-jost text-gray-700">
+                            {address.city}, {address.state} - {address.pincode}
+                          </p>
+                        </div>
+                        <input
+                          type="radio"
+                          checked={selectedAddressId === address._id}
+                          onChange={() => handleAddressSelect(address._id)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={handleNewAddress}
+                    className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#F1B213] transition-colors flex items-center justify-center gap-2 text-[#F1B213] font-suez"
+                  >
+                    <Plus className="h-5 w-5" />
+                    Add New Address
+                  </button>
                 </div>
               </div>
+            )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Email*</label>
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="Email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
-                  />
+            {/* New Address Form */}
+            {(showNewAddressForm || savedAddresses.length === 0) && (
+              <>
+                {/* Personal Information */}
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h1 className="text-2xl lg:text-3xl font-bold text-black font-suez">Personal Information</h1>
+                    {savedAddresses.length > 0 && (
+                      <button
+                        onClick={() => setShowNewAddressForm(false)}
+                        className="text-sm text-[#F1B213] font-suez hover:underline"
+                      >
+                        Use Saved Address
+                      </button>
+                    )}
+                  </div>
+                  <div className="border-b border-dashed border-black mb-6 w-full"></div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">First name*</label>
+                      <input
+                        type="text"
+                        name="firstName"
+                        placeholder="First Name"
+                        value={formData.firstName}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">Last name*</label>
+                      <input
+                        type="text"
+                        name="lastName"
+                        placeholder="Last Name"
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">Email*</label>
+                      <input
+                        type="email"
+                        name="email"
+                        placeholder="Email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">Contact Number*</label>
+                      <input
+                        type="tel"
+                        name="contactNumber"
+                        placeholder="Contact Number"
+                        value={formData.contactNumber}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                {/* Shipping Address */}
                 <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Contact Number*</label>
-                  <input
-                    type="tel"
-                    name="contactNumber"
-                    placeholder="Contact Number"
-                    value={formData.contactNumber}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
-                  />
+                  <h2 className="text-2xl lg:text-3xl font-bold mb-6 text-black font-suez">Shipping address</h2>
+                  <div className="border-b border-dashed border-black mb-6 w-full"></div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">Building name</label>
+                      <input
+                        type="text"
+                        name="buildingName"
+                        placeholder="Building Name (Optional)"
+                        value={formData.buildingName}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">Block/flat/house No.</label>
+                      <input
+                        type="text"
+                        name="blockHouseNo"
+                        placeholder="Enter --- (Optional)"
+                        value={formData.blockHouseNo}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">Street Number</label>
+                      <input
+                        type="text"
+                        name="streetNumber"
+                        placeholder="Street number (Optional)"
+                        value={formData.streetNumber}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">Area*</label>
+                      <input
+                        type="text"
+                        name="area"
+                        placeholder="Area"
+                        value={formData.area}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">Zipcode*</label>
+                      <input
+                        type="text"
+                        name="zipcode"
+                        placeholder="Code"
+                        value={formData.zipcode}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">City*</label>
+                      <input
+                        type="text"
+                        name="city"
+                        placeholder="City"
+                        value={formData.city}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 font-suez">State*</label>
+                      <input
+                        type="text"
+                        name="state"
+                        placeholder="State"
+                        value={formData.state}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                        style={{ fontFamily: 'Jost, sans-serif' }}
+                      />
+                    </div>
+                  </div>
                 </div>
+              </>
+            )}
+
+            {/* Checkboxes */}
+            <div className="space-y-4 mb-8">
+              <div className="border-b border-dashed border-black pb-4">
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="privacyPolicy"
+                    checked={formData.privacyPolicy}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                  />
+                  <span className="text-sm font-suez">I've read the <span className="underline">privacy policy</span>.</span>
+                </label>
               </div>
-            </div>
 
-            {/* Shipping Address */}
-            <div>
-              <h2 className="text-2xl lg:text-3xl font-bold mb-6 text-black font-suez">Shipping address</h2>
-              <div className="border-b border-dashed border-black mb-6 w-full"></div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Building name*</label>
+              <div className="border-b border-dashed border-black pb-4">
+                <label className="flex items-start gap-3">
                   <input
-                    type="text"
-                    name="buildingName"
-                    placeholder="Building Name"
-                    value={formData.buildingName}
+                    type="checkbox"
+                    name="generalConditions"
+                    checked={formData.generalConditions}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
+                    className="mt-1"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Block/flat/house No.*</label>
-                  <input
-                    type="text"
-                    name="blockHouseNo"
-                    placeholder="Enter ---"
-                    value={formData.blockHouseNo}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Street Number*</label>
-                  <input
-                    type="text"
-                    name="streetNumber"
-                    placeholder="Street number"
-                    value={formData.streetNumber}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Area*</label>
-                  <input
-                    type="text"
-                    name="area"
-                    placeholder="Area"
-                    value={formData.area}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">Zipcode*</label>
-                  <input
-                    type="text"
-                    name="zipcode"
-                    placeholder="Code"
-                    value={formData.zipcode}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">City*</label>
-                  <input
-                    type="text"
-                    name="city"
-                    placeholder="City"
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2 font-suez">State*</label>
-                  <input
-                    type="text"
-                    name="state"
-                    placeholder="State"
-                    value={formData.state}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                    style={{ fontFamily: 'Jost, sans-serif' }}
-                  />
-                </div>
-              </div>
-
-              {/* Checkboxes */}
-              <div className="space-y-4 mb-8">
-                <div className="border-b border-dashed border-black pb-4">
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      name="privacyPolicy"
-                      checked={formData.privacyPolicy}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                    />
-                    <span className="text-sm font-suez">I've read the <span className="underline">privacy policy</span>.</span>
-                  </label>
-                </div>
-                
-                <div className="border-b border-dashed border-black pb-4">
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      name="generalConditions"
-                      checked={formData.generalConditions}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                    />
-                    <span className="text-sm font-suez">I agree to the <span className="underline">general conditions</span>.</span>
-                  </label>
-                </div>
+                  <span className="text-sm font-suez">I agree to the <span className="underline">general conditions</span>.</span>
+                </label>
               </div>
             </div>
           </div>
@@ -427,11 +569,11 @@ const AddressPage = () => {
           <div className="lg:col-span-4 lg:pl-8">
             {/* Vertical divider line for desktop */}
             <div className="hidden lg:block border-l border-dashed border-black h-full absolute left-[66.666667%] top-48"></div>
-            
+
             {/* Order Summary */}
             <div className="bg-white lg:bg-transparent p-4 lg:p-0 rounded-lg lg:rounded-none border lg:border-none border-black mb-6">
               <h2 className="text-xl lg:text-3xl font-bold mb-4 lg:mb-8 text-black font-suez">Order Summary</h2>
-              
+
               <div className="space-y-4 lg:space-y-6">
                 {/* Summary Items */}
                 {cartItems.map((item) => (
@@ -440,24 +582,24 @@ const AddressPage = () => {
                     <span className="text-sm lg:text-lg font-medium font-suez">₹{(item.displayPrice * item.quantity)}.00</span>
                   </div>
                 ))}
-                
+
                 <div className="border-b border-dashed border-black my-4 lg:my-6"></div>
-                
+
                 {/* Totals */}
                 <div className="flex justify-between items-center text-sm lg:text-lg">
                   <span className="font-suez">Subtotal</span>
                   <span className="font-medium font-suez">₹{subtotal}.00</span>
                 </div>
-                
+
                 <div className="border-b border-dashed border-black my-4 lg:my-6"></div>
-                
+
                 <div className="flex justify-between items-center text-sm lg:text-lg">
                   <span className="font-suez">Delivery charge</span>
                   <span className="font-medium font-suez">₹{deliveryCharge}.00</span>
                 </div>
-                
+
                 <div className="border-b border-dashed border-black my-4 lg:my-6"></div>
-                
+
                 <div className="flex justify-between items-center text-lg lg:text-xl font-bold">
                   <span className="font-suez">Total:</span>
                   <span className="font-suez">₹{total}.00</span>
@@ -465,14 +607,14 @@ const AddressPage = () => {
 
                 {/* Action Buttons */}
                 <div className="space-y-3 lg:space-y-4 mt-6 lg:mt-8">
-                  <button 
+                  <button
                     onClick={handleNextStep}
                     disabled={loading || cartItems.length === 0}
                     className="w-full bg-[#F1B213] text-white py-3 rounded-full text-lg font-medium hover:bg-[#E5A612] transition-colors font-suez disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next Step
                   </button>
-                  <button 
+                  <button
                     onClick={() => window.location.href = '/'}
                     className="w-full text-black py-3 text-lg font-medium hover:text-[#F1B213] transition-colors font-suez"
                   >
