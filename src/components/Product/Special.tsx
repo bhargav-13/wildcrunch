@@ -1,25 +1,89 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Heart, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import products from "@/data/product";
-import { useWishlist } from "@/components/WishlistContext.tsx";
+import { useProducts } from "@/hooks/useProducts";
+import { useWishlist } from "@/hooks/useWishlist";
+import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+
+// Helper function to get color based on category
+const getColorForCategory = (category: string) => {
+  const colorMap: { [key: string]: string } = {
+    'Makhana': '#F1B213',
+    'Plain Makhana': '#F0C4A7',
+    'Protein Puffs': '#BE9A5E',
+    'Popcorn': '#4683E9',
+    'Combo': '#9EC417',
+  };
+  return colorMap[category] || '#F1B213';
+};
 
 const Products = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const { wishlist, toggleWishlist } = useWishlist();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { addToCart } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
+  
+  // Fetch products from backend (limit to 4)
+  const { products: apiProducts, loading } = useProducts({ limit: 4 });
 
-  // Limit to 4 products
-  const filteredProducts = products
-    .filter((product) =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .slice(0, 4);
+  // Transform backend products to match frontend format
+  const filteredProducts = apiProducts.map((product: any) => ({
+    id: product._id,
+    _id: product._id,
+    name: product.name,
+    weight: product.weight ? `${product.weight}g` : '80g',
+    price: `₹${product.pricing?.individual?.price || product.price}`,
+    priceNumeric: product.pricing?.individual?.price || product.price,
+    pricing: product.pricing,
+    category: product.category,
+    imageSrc: product.images?.[0] || '',
+    bgColor: getColorForCategory(product.category),
+  })).slice(0, 4);
 
   const handleProductClick = (product: any) => {
     navigate(`/product/${product.id}`);
   };
+
+  const handleWishlistToggle = async (e: React.MouseEvent, product: any) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.error('Please login to add items to wishlist');
+      navigate('/login');
+      return;
+    }
+    try {
+      const action = await toggleWishlist(product.id);
+      toast.success(action === 'added' ? 'Added to wishlist!' : 'Removed from wishlist!');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update wishlist');
+    }
+  };
+
+  const handleAddToCart = async (e: React.MouseEvent, product: any) => {
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.error('Please login to add items to cart');
+      navigate('/login');
+      return;
+    }
+    try {
+      await addToCart(product.id, 1);
+      toast.success(`${product.name} added to cart!`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add to cart');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-[#F8F7E5] flex flex-col items-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C06441]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#F8F7E5] flex flex-col items-center overflow-x-hidden">
@@ -44,15 +108,12 @@ const Products = () => {
             {/* Heart Button */}
             <button
               className="absolute top-4 right-4 z-20"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleWishlist(product);
-              }}
+              onClick={(e) => handleWishlistToggle(e, product)}
             >
               <Heart
                 size={20}
                 className={
-                  wishlist.some((item) => item.id === product.id)
+                  isInWishlist(product.id)
                     ? "fill-black"
                     : ""
                 }
@@ -84,7 +145,7 @@ const Products = () => {
             {/* Cart Button */}
             <button
               className="absolute -bottom-4 -right-4 bg-[#FCEB81] w-12 h-12 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => handleAddToCart(e, product)}
             >
               <ShoppingCart size={20} className="text-gray-800" />
             </button>

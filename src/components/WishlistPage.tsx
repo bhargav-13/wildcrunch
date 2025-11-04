@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
-import localProducts from "@/data/product";
 
 const WishlistPage = () => {
   const { wishlistItems, removeFromWishlist, loading } = useWishlist();
@@ -31,20 +30,31 @@ const WishlistPage = () => {
     setPathData(generateRandomPath());
   }, []);
 
-  // Merge backend wishlist items with local product data for images
-  const wishlistProducts = wishlistItems.slice(0, 6).map(item => {
+  // Helper function to get color based on category
+  const getColorForCategory = (category: string) => {
+    const colorMap: { [key: string]: string } = {
+      'Makhana': '#F1B213',
+      'Plain Makhana': '#F0C4A7',
+      'Protein Puffs': '#BE9A5E',
+      'Popcorn': '#4683E9',
+      'Combo': '#9EC417',
+    };
+    return colorMap[category] || '#F1B213';
+  };
+
+  // Transform backend wishlist items for display
+  const wishlistProducts = wishlistItems.slice(0, 6).map((item: any) => {
     const product = item.product || item;
-    const localProduct = localProducts.find(p => p.id === (item.productId || product.id));
     
-    // Merge backend data with local images
+    // Use backend product data directly
     return {
       ...product,
-      productId: item.productId || product.id,
-      imageSrc: localProduct?.imageSrc || product.imageSrc,
-      bgColor: localProduct?.bgColor || product.bgColor,
-      name: product.name || localProduct?.name,
-      price: product.price || localProduct?.price,
-      weight: product.weight || localProduct?.weight,
+      productId: item.productId || product._id,
+      imageSrc: product.images?.[0] || '',
+      bgColor: getColorForCategory(product.category),
+      name: product.name,
+      price: product.pricing?.individual?.price ? `₹${product.pricing.individual.price}` : product.price,
+      weight: product.weight ? `${product.weight}g` : '',
     };
   });
 

@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Heart, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
-import products from "@/data/product";
+import { productsAPI } from "@/services/api";
 import Special from "./Special.tsx";
 import Review from "./Review.tsx";
 import Others from "./Others.tsx";
@@ -22,8 +22,10 @@ const InProduct = () => {
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
 
-  // Find the product by ID
-  const selectedProduct = products.find((product) => product.id === id);
+  // State for product data from backend
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
     const handleRotate = (direction) => {
     setRotation((prev) => prev + (direction === "right" ? 90 : -90));
@@ -34,9 +36,51 @@ const InProduct = () => {
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
+  // Fetch product from backend
   useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await productsAPI.getById(id);
+        
+        if (response.data.success) {
+          const product = response.data.data;
+          // Transform backend data to match frontend format
+          setSelectedProduct({
+            id: product._id,
+            _id: product._id,
+            name: product.name,
+            description: product.description,
+            weight: product.weight ? `${product.weight}g` : '80g',
+            price: `₹${product.price}`,
+            priceNumeric: product.price,
+            pricing: product.pricing,
+            category: product.category,
+            imageSrc: product.images?.[0] || '',
+            images: product.images || [],
+            bgColor: '#F1B213', // Default color, can be added to backend later
+            ingredients: product.ingredients,
+            nutritionInfo: product.nutritionInfo,
+            inStock: product.stock > 0,
+            stockQuantity: product.stock,
+            ratings: product.ratings,
+          });
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch product:', err);
+        setError(err.response?.data?.message || 'Failed to load product');
+        toast.error('Failed to load product');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
     window.scrollTo(0, 0);
-  }, [selectedProduct]);
+  }, [id]);
 
   // Check if product is in wishlist
   useEffect(() => {
@@ -45,22 +89,28 @@ const InProduct = () => {
     }
   }, [selectedProduct, isAuthenticated, isInWishlist]);
 
-  // Calculate dynamic price based on pack selection with discounts
+  // Calculate dynamic price based on pack selection using backend pricing data
   const calculatePrice = () => {
     if (!selectedProduct) return 0;
     
-    // Extract base price from string (e.g., "₹200" -> 200)
-    const basePrice = parseInt(selectedProduct.price.replace(/[^0-9]/g, ''));
+    // If product has pricing variants from backend, use them
+    if (selectedProduct.pricing) {
+      if (selectedPack === '1') {
+        return selectedProduct.pricing.individual.price;
+      } else if (selectedPack === '2') {
+        return selectedProduct.pricing.packOf2.price;
+      } else {
+        return selectedProduct.pricing.packOf4.price;
+      }
+    }
     
-    // Apply pack pricing with discounts
+    // Fallback to legacy calculation for products without pricing variants
+    const basePrice = parseInt(selectedProduct.price.replace(/[^0-9]/g, ''));
     if (selectedPack === '1') {
-      // Individual product - base price
       return basePrice;
     } else if (selectedPack === '2') {
-      // Pack of 2 - 5% discount per item (2 * basePrice * 0.95)
       return Math.round(basePrice * 2 * 0.95);
     } else {
-      // Pack of 4 - 10% discount per item (4 * basePrice * 0.90)
       return Math.round(basePrice * 4 * 0.90);
     }
   };
@@ -134,10 +184,33 @@ const InProduct = () => {
     }
   };
 
-  // If product not found, redirect to products page
-  if (!selectedProduct) {
-    navigate("/products");
-    return null;
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading product...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !selectedProduct) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error || 'Product not found'}</p>
+          <button
+            onClick={() => navigate('/products')}
+            className="bg-[#F1B213] text-white px-6 py-2 rounded-full"
+          >
+            Back to Products
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -369,9 +442,7 @@ const InProduct = () => {
   >
     <h3 className="font-suez text-lg mb-3 text-black">INGREDIENTS</h3>
     <p className="font-suez text-sm text-white leading-relaxed">
-      Makhana (Fox Nuts), Rice Bran Oil, Habanero Chili Powder, Red Chili Flakes,
-      <br />
-      Rock Salt, Black Pepper, Natural Spices
+      {selectedProduct.ingredients || 'Makhana (Fox Nuts), Rice Bran Oil, Habanero Chili Powder, Red Chili Flakes, Rock Salt, Black Pepper, Natural Spices'}
     </p>
   </motion.div>
 
@@ -386,10 +457,7 @@ const InProduct = () => {
       Taste the Lightness in Every Bite of Makhana.
     </h3>
     <p className="font-jost text-sm text-white leading-relaxed">
-      Craving something light yet flavorful? No worries. Just grab a handful of
-      our perfectly roasted makhana, seasoned to hit every taste bud with the
-      right crunch and spice. Pure, wholesome, and guilt-free. Damn tasty. It's
-      the little joys of snacking, made better…
+      {selectedProduct.description || 'Craving something light yet flavorful? No worries. Just grab a handful of our perfectly roasted makhana, seasoned to hit every taste bud with the right crunch and spice. Pure, wholesome, and guilt-free. Damn tasty. It\'s the little joys of snacking, made better…'}
     </p>
   </motion.div>
 </div>
@@ -422,11 +490,7 @@ const InProduct = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.7, duration: 0.5 }}
                   >
-                    Craving something light yet flavorful? No worries. Just grab
-                    a handful of our perfectly roasted makhana, seasoned to hit
-                    every taste bud with the right crunch and spice. Pure,
-                    wholesome, and guilt-free. Damn tasty. It's the little joys
-                    of snacking, made better…
+                    {selectedProduct.description || 'Craving something light yet flavorful? No worries. Just grab a handful of our perfectly roasted makhana, seasoned to hit every taste bud with the right crunch and spice. Pure, wholesome, and guilt-free. Damn tasty. It\'s the little joys of snacking, made better…'}
                   </motion.p>
                 </div>
 
@@ -462,8 +526,7 @@ const InProduct = () => {
                     INGREDIENTS
                   </h3>
                   <p className="font-suez text-base text-black break-words">
-                    Makhana (Fox Nuts), Rice Bran Oil, Habanero Chili Powder,
-                    Red Chili Flakes, Rock Salt, Black Pepper, Natural Spices
+                    {selectedProduct.ingredients || 'Makhana (Fox Nuts), Rice Bran Oil, Habanero Chili Powder, Red Chili Flakes, Rock Salt, Black Pepper, Natural Spices'}
                   </p>
                 </motion.div>
               </motion.div>

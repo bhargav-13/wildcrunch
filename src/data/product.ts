@@ -24,6 +24,22 @@ export interface Product {
   name: string;
   weight: string;
   price: string;
+  pricing?: {
+    individual: {
+      price: number;
+      originalPrice: number;
+    };
+    packOf2: {
+      price: number;
+      originalPrice: number;
+      discount: number;
+    };
+    packOf4: {
+      price: number;
+      originalPrice: number;
+      discount: number;
+    };
+  };
   category: string;
   imageSrc: string;
   bgColor: string;

@@ -36,7 +36,7 @@ router.post('/add', protect, async (req, res) => {
     const { productId, quantity = 1, pack = '1', packPrice } = req.body;
 
     // Find product
-    const product = await Product.findOne({ id: productId });
+    const product = await Product.findById(productId);
     
     if (!product) {
       return res.status(404).json({
@@ -48,18 +48,30 @@ router.post('/add', protect, async (req, res) => {
     // Calculate pack price if not provided
     let finalPackPrice = packPrice;
     if (!finalPackPrice) {
-      const basePrice = product.priceNumeric;
-      if (pack === '1') {
-        finalPackPrice = basePrice;
-      } else if (pack === '2') {
-        finalPackPrice = Math.round(basePrice * 2 * 0.95); // 5% discount
-      } else if (pack === '4') {
-        finalPackPrice = Math.round(basePrice * 4 * 0.90); // 10% discount
+      // Use pricing variants if available, otherwise use legacy price
+      if (product.pricing) {
+        if (pack === '1') {
+          finalPackPrice = product.pricing.individual.price;
+        } else if (pack === '2') {
+          finalPackPrice = product.pricing.packOf2.price;
+        } else if (pack === '4') {
+          finalPackPrice = product.pricing.packOf4.price;
+        }
+      } else {
+        // Fallback to legacy price calculation
+        const basePrice = product.price;
+        if (pack === '1') {
+          finalPackPrice = basePrice;
+        } else if (pack === '2') {
+          finalPackPrice = Math.round(basePrice * 2 * 0.95); // 5% discount
+        } else if (pack === '4') {
+          finalPackPrice = Math.round(basePrice * 4 * 0.90); // 10% discount
+        }
       }
     }
 
     // Check stock
-    if (!product.inStock || product.stockQuantity < quantity) {
+    if (!product.isActive || product.stock < quantity) {
       return res.status(400).json({
         success: false,
         message: 'Product out of stock'
@@ -82,15 +94,16 @@ router.post('/add', protect, async (req, res) => {
       // Update quantity
       cart.items[existingItemIndex].quantity += quantity;
     } else {
-      // Add new item
+      // Add new item with correct product fields
+      const basePrice = product.pricing?.individual?.price || product.price;
       cart.items.push({
         product: product._id,
-        productId: product.id,
+        productId: productId,
         name: product.name,
-        price: product.price,
-        priceNumeric: product.priceNumeric,
-        imageSrc: product.imageSrc,
-        weight: product.weight,
+        price: `₹${basePrice}`,
+        priceNumeric: basePrice,
+        imageSrc: product.images?.[0] || '',
+        weight: product.weight ? `${product.weight}g` : '',
         quantity,
         pack,
         packPrice: finalPackPrice

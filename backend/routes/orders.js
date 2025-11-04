@@ -42,7 +42,7 @@ router.post('/create-from-cart', protect, async (req, res) => {
     let itemsPrice = 0;
 
     for (const cartItem of cart.items) {
-      const product = await Product.findOne({ id: cartItem.productId });
+      const product = await Product.findById(cartItem.productId);
       
       if (!product) {
         return res.status(404).json({
@@ -329,7 +329,7 @@ router.put('/:id/cancel', protect, async (req, res) => {
     // Restore product stock
     for (const item of order.items) {
       await Product.findByIdAndUpdate(item.product, {
-        $inc: { stockQuantity: item.quantity }
+        $inc: { stock: item.quantity }
       });
     }
 

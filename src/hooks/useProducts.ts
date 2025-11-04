@@ -8,6 +8,22 @@ interface Product {
   weight: string;
   price: string;
   priceNumeric: number;
+  pricing?: {
+    individual: {
+      price: number;
+      originalPrice: number;
+    };
+    packOf2: {
+      price: number;
+      originalPrice: number;
+      discount: number;
+    };
+    packOf4: {
+      price: number;
+      originalPrice: number;
+      discount: number;
+    };
+  };
   category: string;
   imageSrc: string;
   bgColor: string;
@@ -48,7 +64,9 @@ export const useProducts = (params?: UseProductsParams) => {
       const response = await productsAPI.getAll(params);
       
       if (response.data.success) {
-        setProducts(response.data.data);
+        // Backend returns products in 'products' field
+        const backendProducts = response.data.products || response.data.data || [];
+        setProducts(backendProducts);
         if (response.data.pagination) {
           setPagination(response.data.pagination);
         }

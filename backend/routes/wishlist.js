@@ -36,7 +36,7 @@ router.post('/add', protect, async (req, res) => {
     const { productId } = req.body;
 
     // Find product
-    const product = await Product.findOne({ id: productId });
+    const product = await Product.findById(productId);
     
     if (!product) {
       return res.status(404).json({
@@ -65,7 +65,7 @@ router.post('/add', protect, async (req, res) => {
     // Add new item
     wishlist.items.push({
       product: product._id,
-      productId: product.id
+      productId: productId
     });
 
     await wishlist.save();
@@ -155,7 +155,7 @@ router.post('/toggle/:productId', protect, async (req, res) => {
     const { productId } = req.params;
 
     // Find product
-    const product = await Product.findOne({ id: productId });
+    const product = await Product.findById(productId);
     
     if (!product) {
       return res.status(404).json({
@@ -190,7 +190,7 @@ router.post('/toggle/:productId', protect, async (req, res) => {
       // Add to wishlist
       wishlist.items.push({
         product: product._id,
-        productId: product.id
+        productId: productId
       });
       await wishlist.save();
       await wishlist.populate('items.product');

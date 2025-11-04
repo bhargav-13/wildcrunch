@@ -5,7 +5,6 @@ import Header from '../Header';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import localProducts from '@/data/product';
 import { ordersAPI } from '@/services/api';
 
 const CartPage = () => {
@@ -83,13 +82,13 @@ const CartPage = () => {
 
   const rawCartItems = cart?.items || [];
   
-  // Merge cart items with local product data for images
-  const cartItems = rawCartItems.map(item => {
-    const localProduct = localProducts.find(p => p.id === item.productId);
+  // Transform cart items for display (use backend data directly)
+  const cartItems = rawCartItems.map((item: any) => {
     const packLabel = item.pack === '1' ? 'Individual' : item.pack === '2' ? 'Pack of 2' : item.pack === '4' ? 'Pack of 4' : '';
     return {
       ...item,
-      imageSrc: localProduct?.imageSrc || item.imageSrc,
+      // Use image from backend cart item or populated product
+      imageSrc: item.imageSrc || item.product?.images?.[0] || '',
       packLabel,
       displayPrice: item.packPrice || item.priceNumeric,
     };

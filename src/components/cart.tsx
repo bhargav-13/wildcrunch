@@ -2,7 +2,6 @@ import { X, ChevronLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
-import localProducts from "@/data/product";
 
 interface CartProps {
   isOpen: boolean;
@@ -13,12 +12,12 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
   const navigate = useNavigate();
   const { cartItems, totalPrice, totalItems } = useCart();
   
-  // Merge cart items with local product data for images
-  const enhancedCartItems = cartItems.map(item => {
-    const localProduct = localProducts.find(p => p.id === item.productId);
+  // Use cart items directly from backend (already has images)
+  const enhancedCartItems = cartItems.map((item: any) => {
     return {
       ...item,
-      imageSrc: localProduct?.imageSrc || item.imageSrc,
+      // Use image from backend cart item or populated product
+      imageSrc: item.imageSrc || item.product?.images?.[0] || '',
     };
   });
 

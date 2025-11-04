@@ -7,26 +7,45 @@ import { useProducts } from "@/hooks/useProducts";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import localProducts from "@/data/product";
+import { productsAPI } from "@/services/api";
 
-// Categories
-const categories = [
-  "All Products",
-  "Makhana",
-  "Plain Makhana",
-  "Protein Puffs",
-  "Popcorn",
-  "Combo",
-];
+// Helper function to get color based on category
+const getColorForCategory = (category: string) => {
+  const colorMap: { [key: string]: string } = {
+    'Makhana': '#F1B213',
+    'Plain Makhana': '#F0C4A7',
+    'Protein Puffs': '#BE9A5E',
+    'Popcorn': '#4683E9',
+    'Combo': '#9EC417',
+  };
+  return colorMap[category] || '#F1B213';
+};
 
 const Products = () => {
   const [selectedCategory, setSelectedCategory] = useState("All Products");
   const [searchTerm, setSearchTerm] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [categories, setCategories] = useState<string[]>(["All Products"]);
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Fetch categories from backend
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await productsAPI.getCategories();
+        const backendCategories = response.data.data || response.data.categories || [];
+        setCategories(["All Products", ...backendCategories]);
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+        // Fallback categories
+        setCategories(["All Products", "Makhana", "Plain Makhana", "Protein Puffs", "Popcorn", "Combo"]);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   // Fetch products from backend
   const { products: apiProducts, loading, error } = useProducts({
@@ -34,22 +53,31 @@ const Products = () => {
     search: searchTerm,
   });
 
-  // Use local products for now (backend images not configured yet)
-  // TODO: Switch to API products once backend serves images properly
-  const products = localProducts;
+  // Transform backend products to match frontend format
+  const products = apiProducts.map((product: any) => ({
+    id: product._id,
+    _id: product._id,
+    name: product.name,
+    description: product.description,
+    weight: product.weight ? `${product.weight}g` : '80g',
+    price: `₹${product.pricing?.individual?.price || product.price}`,
+    priceNumeric: product.pricing?.individual?.price || product.price,
+    pricing: product.pricing,
+    category: product.category,
+    imageSrc: product.images?.[0] || '',
+    images: product.images || [],
+    bgColor: getColorForCategory(product.category),
+    ingredients: product.ingredients,
+    nutritionInfo: product.nutritionInfo,
+    inStock: product.stock > 0,
+    stockQuantity: product.stock,
+    ratings: product.ratings,
+  }));
 
   // Filter products (excluding Combo from "All Products")
   const filteredProducts = products.filter((product) => {
-    // Category filter
-    if (selectedCategory !== "All Products" && product.category !== selectedCategory) {
-      return false;
-    }
     // Exclude Combo from "All Products"
     if (selectedCategory === "All Products" && product.category === "Combo") {
-      return false;
-    }
-    // Search filter
-    if (searchTerm && !product.name.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
     return true;
