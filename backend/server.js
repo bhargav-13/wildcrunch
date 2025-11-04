@@ -21,8 +21,11 @@ app.use(cookieParser());
 // CORS configuration - Allow both frontend and admin panel
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:8080',
-  'http://localhost:3001', // Admin panel
+  'http://localhost:3001', // Admin panel local
   'http://localhost:3000', // Alternative admin panel port
+  'https://wildcrunch-admin.vercel.app', // Admin panel production
+  'https://www.wildcrunch.in', // Frontend production
+  'https://wildcrunch.in', // Frontend production (without www)
 ];
 
 app.use(cors({
