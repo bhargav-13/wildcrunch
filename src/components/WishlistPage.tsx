@@ -45,13 +45,13 @@ const WishlistPage = () => {
   // Transform backend wishlist items for display
   const wishlistProducts = wishlistItems.slice(0, 6).map((item: any) => {
     const product = item.product || item;
-    
+
     // Use backend product data directly
     return {
       ...product,
       productId: item.productId || product._id,
       imageSrc: product.images?.[0] || '',
-      bgColor: getColorForCategory(product.category),
+      bgColor: product.backgroundColor || getColorForCategory(Array.isArray(product.category) ? product.category[0] : product.category),
       name: product.name,
       price: product.pricing?.individual?.price ? `₹${product.pricing.individual.price}` : product.price,
       weight: product.weight ? `${product.weight}g` : '',

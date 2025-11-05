@@ -40,7 +40,7 @@ const Products = () => {
     pricing: product.pricing,
     category: product.category,
     imageSrc: product.images?.[0] || '',
-    bgColor: getColorForCategory(product.category),
+    bgColor: product.backgroundColor || getColorForCategory(Array.isArray(product.category) ? product.category[0] : product.category),
   })).slice(0, 4);
 
   const handleProductClick = (product: any) => {

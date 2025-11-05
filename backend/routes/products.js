@@ -34,9 +34,9 @@ router.get('/', async (req, res) => {
     // Build query
     const query = {};
 
-    // Filter by category
+    // Filter by category (check if category array contains the specified category)
     if (category && category !== 'All') {
-      query.category = category;
+      query.category = { $in: [category] };
     }
 
     // Search by name or description
@@ -155,6 +155,7 @@ router.post('/', protect, admin, async (req, res) => {
         carbs: req.body.nutritionInfo?.carbs ? parseFloat(req.body.nutritionInfo.carbs) : 0,
         fat: req.body.nutritionInfo?.fat ? parseFloat(req.body.nutritionInfo.fat) : 0
       },
+      backgroundColor: req.body.backgroundColor || '#FFFFFF',
       isActive: req.body.isActive !== false
     };
 
@@ -212,6 +213,7 @@ router.put('/:id', protect, admin, async (req, res) => {
         carbs: req.body.nutritionInfo?.carbs ? parseFloat(req.body.nutritionInfo.carbs) : 0,
         fat: req.body.nutritionInfo?.fat ? parseFloat(req.body.nutritionInfo.fat) : 0
       },
+      backgroundColor: req.body.backgroundColor || '#FFFFFF',
       isActive: req.body.isActive !== false
     };
 

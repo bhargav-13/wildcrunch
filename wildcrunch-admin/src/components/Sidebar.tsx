@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   Users,
   Tags,
+  Tag,
   LogOut,
   Menu,
   X
@@ -21,6 +22,7 @@ const menuItems = [
   { icon: ShoppingCart, label: 'Orders', href: '/dashboard/orders' },
   { icon: Users, label: 'Customers', href: '/dashboard/customers' },
   { icon: Tags, label: 'Categories', href: '/dashboard/categories' },
+  { icon: Tag, label: 'Coupons', href: '/coupons' },
 ];
 
 export default function Sidebar() {
@@ -64,8 +66,12 @@ export default function Sidebar() {
           {/* Logo */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">WC</span>
+              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center p-1 shadow-sm border border-gray-200">
+                <img
+                  src="/favicon.png"
+                  alt="Wild Crunch Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div>
                 <h1 className="font-bold text-lg text-gray-900">Wild Crunch</h1>

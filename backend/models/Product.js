@@ -77,11 +77,11 @@ const productSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
-  category: {
+  category: [{
     type: String,
-    required: [true, 'Please provide category'],
+    required: true,
     trim: true
-  },
+  }],
   // Array of image URLs - supports unlimited images
   images: {
     type: [String],
@@ -135,6 +135,18 @@ const productSchema = new mongoose.Schema({
     count: {
       type: Number,
       default: 0
+    }
+  },
+  backgroundColor: {
+    type: String,
+    default: '#FFFFFF',
+    trim: true,
+    validate: {
+      validator: function(v) {
+        // Validate hex color format
+        return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(v);
+      },
+      message: 'Please provide a valid hex color code (e.g., #FF5733)'
     }
   }
 }, {

@@ -105,7 +105,7 @@ export default function OrderDetailsModal({ order, onClose }: OrderDetailsModalP
               <h3 className="text-lg font-semibold text-gray-900">Order Items</h3>
             </div>
             <div className="space-y-4">
-              {order.orderItems?.map((item: any, index: number) => (
+              {(order.items || order.orderItems)?.map((item: any, index: number) => (
                 <div key={index} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
                   {item.product?.images?.[0] && (
                     <img
@@ -117,13 +117,16 @@ export default function OrderDetailsModal({ order, onClose }: OrderDetailsModalP
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{item.name}</p>
                     <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                    {item.pack && item.pack !== '1' && (
+                      <p className="text-sm text-gray-600">Pack: {item.pack}</p>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-gray-900">
-                      {formatCurrency(item.price)}
+                      {formatCurrency(item.priceNumeric || item.price)}
                     </p>
                     <p className="text-sm text-gray-600">
-                      Total: {formatCurrency(item.price * item.quantity)}
+                      Total: {formatCurrency((item.priceNumeric || item.price) * item.quantity)}
                     </p>
                   </div>
                 </div>

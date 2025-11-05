@@ -66,7 +66,7 @@ const Products = () => {
     category: product.category,
     imageSrc: product.images?.[0] || '',
     images: product.images || [],
-    bgColor: getColorForCategory(product.category),
+    bgColor: product.backgroundColor || getColorForCategory(Array.isArray(product.category) ? product.category[0] : product.category),
     ingredients: product.ingredients,
     nutritionInfo: product.nutritionInfo,
     inStock: product.stock > 0,
@@ -77,7 +77,8 @@ const Products = () => {
   // Filter products (excluding Combo from "All Products")
   const filteredProducts = products.filter((product) => {
     // Exclude Combo from "All Products"
-    if (selectedCategory === "All Products" && product.category === "Combo") {
+    const categories = Array.isArray(product.category) ? product.category : [product.category];
+    if (selectedCategory === "All Products" && categories.includes("Combo")) {
       return false;
     }
     return true;

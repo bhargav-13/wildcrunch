@@ -142,27 +142,39 @@ export const ordersAPI = {
   // Create unpaid order from cart (Step 1)
   createFromCart: () =>
     api.post('/orders/create-from-cart'),
-  
+
   // Update order with shipping address (Step 2)
   updateAddress: (orderId: string, shippingAddress: any) =>
     api.put(`/orders/${orderId}/address`, { shippingAddress }),
-  
+
   getAll: () =>
     api.get('/orders'),
-  
+
   getById: (id: string) =>
     api.get(`/orders/${id}`),
-  
+
   markAsPaid: (id: string, transactionId: string) =>
     api.put(`/orders/${id}/pay`, { transactionId }),
-  
+
   cancel: (id: string) =>
     api.put(`/orders/${id}/cancel`),
-  
+
+  // Validate coupon
+  validateCoupon: (code: string, cartTotal: number) =>
+    api.post('/coupons/validate', { code, cartTotal }),
+
+  // Apply coupon (mark as used)
+  applyCoupon: (couponId: string) =>
+    api.post('/coupons/apply', { couponId }),
+
+  // Get active coupons (public)
+  getActiveCoupons: () =>
+    api.get('/coupons/active'),
+
   // Admin only
   getAllAdmin: () =>
     api.get('/orders/admin/all'),
-  
+
   updateStatus: (id: string, orderStatus: string) =>
     api.put(`/orders/${id}/status`, { orderStatus }),
 };

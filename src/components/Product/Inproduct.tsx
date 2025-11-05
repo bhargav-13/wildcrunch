@@ -61,7 +61,7 @@ const InProduct = () => {
             category: product.category,
             imageSrc: product.images?.[0] || '',
             images: product.images || [],
-            bgColor: '#F1B213', // Default color, can be added to backend later
+            bgColor: product.backgroundColor || '#F1B213',
             ingredients: product.ingredients,
             nutritionInfo: product.nutritionInfo,
             inStock: product.stock > 0,

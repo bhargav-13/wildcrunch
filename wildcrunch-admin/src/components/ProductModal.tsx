@@ -32,7 +32,7 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
         discount: '10',
       },
     },
-    category: '',
+    category: [] as string[],
     stock: '',
     weight: '',
     nutritionInfo: {
@@ -41,6 +41,7 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
       carbs: '',
       fat: '',
     },
+    backgroundColor: '#FFFFFF',
     isActive: true,
   });
   const [images, setImages] = useState<string[]>([]);
@@ -71,7 +72,7 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
             discount: product.pricing?.packOf4?.discount?.toString() || '10',
           },
         },
-        category: product.category || '',
+        category: Array.isArray(product.category) ? product.category : (product.category ? [product.category] : []),
         stock: product.stock?.toString() || '',
         weight: product.weight?.toString() || '',
         nutritionInfo: {
@@ -80,6 +81,7 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
           carbs: product.nutritionInfo?.carbs?.toString() || '',
           fat: product.nutritionInfo?.fat?.toString() || '',
         },
+        backgroundColor: product.backgroundColor || '#FFFFFF',
         isActive: product.isActive !== false,
       });
       setImages(product.images || []);
@@ -174,6 +176,11 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
       return;
     }
 
+    if (formData.category.length === 0) {
+      toast.error('Please select at least one category');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const productData = {
@@ -202,6 +209,7 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
           carbs: formData.nutritionInfo.carbs ? parseFloat(formData.nutritionInfo.carbs) : undefined,
           fat: formData.nutritionInfo.fat ? parseFloat(formData.nutritionInfo.fat) : undefined,
         },
+        backgroundColor: formData.backgroundColor,
         images,
       };
 
@@ -253,21 +261,57 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
             </div>
 
             <div>
-              <label htmlFor="category" className="label">Category *</label>
-              <select
-                id="category"
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="input"
-                required
-              >
-                <option value="">Select category</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-                <option value="other">Other</option>
-              </select>
+              <label className="label mb-3">Categories * (Select one or more)</label>
+              <div className="flex flex-wrap gap-2 p-4 border-2 border-dashed border-gray-300 rounded-xl bg-gradient-to-br from-gray-50 to-white min-h-[80px]">
+                {[...categories, 'Other'].map((cat) => {
+                  const isSelected = formData.category.includes(cat);
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setFormData(prev => ({ ...prev, category: prev.category.filter(c => c !== cat) }));
+                        } else {
+                          setFormData(prev => ({ ...prev, category: [...prev.category, cat] }));
+                        }
+                      }}
+                      className={`
+                        px-4 py-2 rounded-full font-medium text-sm transition-all duration-200 transform hover:scale-105
+                        ${isSelected
+                          ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md hover:shadow-lg'
+                          : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-primary-400 hover:text-primary-600'
+                        }
+                      `}
+                    >
+                      <span className="flex items-center gap-2">
+                        {isSelected && (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                        {cat}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {formData.category.length === 0 && (
+                <div className="flex items-center gap-2 mt-2 text-red-500 text-sm">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span>Please select at least one category</span>
+                </div>
+              )}
+              {formData.category.length > 0 && (
+                <div className="flex items-center gap-2 mt-2 text-green-600 text-sm font-medium">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>{formData.category.length} {formData.category.length === 1 ? 'category' : 'categories'} selected: {formData.category.join(', ')}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -282,6 +326,42 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
               rows={4}
               required
             />
+          </div>
+
+          {/* Background Color Picker */}
+          <div>
+            <label htmlFor="backgroundColor" className="label">Product Background Color</label>
+            <div className="flex items-center space-x-4">
+              <div className="flex-1">
+                <input
+                  id="backgroundColor"
+                  name="backgroundColor"
+                  type="text"
+                  value={formData.backgroundColor}
+                  onChange={handleChange}
+                  className="input font-mono"
+                  placeholder="#FFFFFF"
+                  pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+                  title="Enter a valid hex color code (e.g., #FF5733)"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={formData.backgroundColor}
+                  onChange={(e) => setFormData(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                  className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
+                />
+                <div
+                  className="w-16 h-10 rounded border-2 border-gray-300 shadow-sm"
+                  style={{ backgroundColor: formData.backgroundColor }}
+                  title="Color preview"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              This color will be used as the background for the product card on the website
+            </p>
           </div>
 
           <div>

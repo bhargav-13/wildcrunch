@@ -78,7 +78,7 @@ export const ordersAPI = {
     api.get(`/orders/${id}`),
 
   updateStatus: (id: string, status: string) =>
-    api.put(`/orders/${id}/status`, { status }),
+    api.put(`/orders/${id}/status`, { orderStatus: status }),
 };
 
 // Users APIs (if you have user management endpoints)
