@@ -55,12 +55,12 @@ const Dealerships = () => {
       {/* ✅ Hero Section with image slider */}
       <section className="relative w-full bg-[#F8F7E5] overflow-hidden">
         {/* ✅ Top gap for floating header */}
-        <div className="h-[100px] lg:h-[85px] lg:h-30 bg-[#F8F7E5]"></div>
+        <div className="h-[85px] lg:h-[85px] bg-[#F8F7E5]"></div>
 
         {/* ✅ Image slider container */}
         <div
           className={`relative overflow-hidden perspective-[1500px] ${
-            isMobile ? "w-full h-[55vh]" : "w-[200vh] h-[85vh]"
+            isMobile ? "w-screen h-[55vh]" : "w-full h-[85vh]"
           }`}
         >
           <AnimatePresence mode="wait">
@@ -68,8 +68,10 @@ const Dealerships = () => {
               key={images[index]}
               src={images[index]}
               alt={`slide-${index}`}
-              className={`absolute inset-0 w-full h-full ${
-                isMobile ? "object-contain bg-[#F8F7E5]" : "object-cover"
+              className={`absolute inset-0 ${
+                isMobile
+                  ? "w-screen h-full object-cover bg-[#F8F7E5]" // ✅ Full width mobile fix
+                  : "w-full h-full object-cover"
               }`}
               initial={{
                 opacity: 0,
