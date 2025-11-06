@@ -16,6 +16,7 @@ import { toast } from "sonner";
 
 const InProduct = () => {
   const [rotation, setRotation] = useState(0);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -28,6 +29,14 @@ const InProduct = () => {
   const [error, setError] = useState<string | null>(null);
 
     const handleRotate = (direction) => {
+    const images = selectedProduct?.images || [];
+    if (images.length > 0) {
+      if (direction === "right") {
+        setCurrentImageIndex((prev) => (prev + 1) % images.length);
+      } else {
+        setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+      }
+    }
     setRotation((prev) => prev + (direction === "right" ? 90 : -90));
   };
 
@@ -305,7 +314,7 @@ const InProduct = () => {
               >
                 <img
                   key={`modal-image-${selectedProduct.id}-${i}`}
-                  src={selectedProduct.imageSrc}
+                  src={selectedProduct.images?.[currentImageIndex] || selectedProduct.imageSrc}
                   alt={selectedProduct.name}
                   className="rounded-[30px] w-full h-full object-contain"
                 />
@@ -323,6 +332,34 @@ const InProduct = () => {
         <ChevronRight className="w-6 h-6 text-white" />
       </button>
     </div>
+
+    {/* Thumbnail Gallery */}
+    {selectedProduct.images && selectedProduct.images.length > 1 && (
+      <motion.div
+        className="flex gap-2 mt-4 justify-center flex-wrap max-w-[280px]"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.65, duration: 0.4 }}
+      >
+        {selectedProduct.images.map((image, index) => (
+          <button
+            key={index}
+            onClick={() => setCurrentImageIndex(index)}
+            className={`w-14 h-14 rounded-lg border-2 overflow-hidden transition-all ${
+              currentImageIndex === index
+                ? 'border-white scale-110'
+                : 'border-white/40 hover:border-white/70'
+            }`}
+          >
+            <img
+              src={image}
+              alt={`${selectedProduct.name} view ${index + 1}`}
+              className="w-full h-full object-cover"
+            />
+          </button>
+        ))}
+      </motion.div>
+    )}
 
     {/* Pack Selection */}
     <motion.div
@@ -558,7 +595,7 @@ const InProduct = () => {
               }}
             >
               <img
-                src={selectedProduct.imageSrc}
+                src={selectedProduct.images?.[currentImageIndex] || selectedProduct.imageSrc}
                 alt={`Cube side ${index}`}
                 className="h-full w-full object-cover rounded-[55px]"
               />
@@ -585,6 +622,34 @@ const InProduct = () => {
           <ChevronRight className="w-8 h-8 text-white" />
         </button>
       </div>
+
+      {/* Thumbnail Gallery */}
+      {selectedProduct.images && selectedProduct.images.length > 1 && (
+        <motion.div
+          className="flex gap-3 mt-6 justify-center flex-wrap max-w-[400px]"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.65, duration: 0.4 }}
+        >
+          {selectedProduct.images.map((image, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentImageIndex(index)}
+              className={`w-16 h-16 rounded-xl border-2 overflow-hidden transition-all ${
+                currentImageIndex === index
+                  ? 'border-white scale-110 shadow-lg'
+                  : 'border-white/40 hover:border-white/70 hover:scale-105'
+              }`}
+            >
+              <img
+                src={image}
+                alt={`${selectedProduct.name} view ${index + 1}`}
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </motion.div>
+      )}
     </div>
               {/* Right Column */}{" "}
               <motion.div

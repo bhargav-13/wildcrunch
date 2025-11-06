@@ -585,11 +585,6 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
           {/* Images */}
           <div>
             <label className="label">Product Images *</label>
-            <p className="text-sm text-gray-500 mb-3">
-              📸 Recommended: 1000×1000px, PNG with transparent background, under 1MB
-              <br />
-              First image will be the main product display image
-            </p>
             <div className="space-y-4">
               <div className="flex flex-wrap gap-4">
                 {images.map((url, index) => (

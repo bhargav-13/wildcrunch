@@ -74,15 +74,8 @@ const Products = () => {
     ratings: product.ratings,
   }));
 
-  // Filter products (excluding Combo from "All Products")
-  const filteredProducts = products.filter((product) => {
-    // Exclude Combo from "All Products"
-    const categories = Array.isArray(product.category) ? product.category : [product.category];
-    if (selectedCategory === "All Products" && categories.includes("Combo")) {
-      return false;
-    }
-    return true;
-  });
+  // Use all products without filtering
+  const filteredProducts = products;
 
   const handleProductClick = (product: any) => {
     navigate(`/product/${product.id}`);
