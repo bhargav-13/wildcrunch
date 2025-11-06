@@ -276,7 +276,7 @@ const Products = () => {
 
                 {/* Details */}
                 <div className="mt-2 flex flex-col justify-end text-left text-white h-full">
-                  <h3 className="font-suez text-lg md:text-3xl mb-1 line-clamp-2">
+                  <h3 className="font-suez text-sm sm:text-lg md:text-3xl mb-1 line-clamp-2">
                     {product.name}
                   </h3>
                   <p className="font-jost text-sm">{product.weight}</p>
