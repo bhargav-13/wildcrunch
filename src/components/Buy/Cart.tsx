@@ -164,9 +164,9 @@ const CartPage = () => {
   });
   
   const subtotal = cart?.totalPrice || 0;
-  const deliveryCharge = 60;
   const discount = appliedCoupon?.discount || 0;
-  const total = subtotal + deliveryCharge - discount;
+  // Don't show delivery charge in cart - will be calculated after address selection
+  const total = subtotal - discount;
   const totalQuantity = cart?.totalItems || 0;
 
   // Progress steps
@@ -443,13 +443,6 @@ const CartPage = () => {
                 <span className="font-medium font-jost">₹{subtotal}.00</span>
               </div>
 
-              <div className="border-b border-dashed border-black my-6"></div>
-
-              <div className="flex justify-between items-center text-lg">
-                <span className="font-suez">Delivery charge</span>
-                <span className="font-medium font-jost">₹{deliveryCharge}.00</span>
-              </div>
-
               {appliedCoupon && discount > 0 && (
                 <>
                   <div className="border-b border-dashed border-black my-6"></div>
@@ -461,6 +454,13 @@ const CartPage = () => {
               )}
 
               <div className="border-b border-dashed border-black my-6"></div>
+
+              {/* Note about shipping */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-800 font-jost">
+                  💡 Shipping charges will be calculated based on your delivery address in the next step
+                </p>
+              </div>
 
               <div className="flex justify-between items-center text-xl font-bold">
                 <span className="font-suez">Total:</span>
@@ -654,9 +654,17 @@ const CartPage = () => {
                 <span className="text-sm font-suez">Subtotal</span>
                 <span className="text-sm font-medium font-suez">₹{subtotal}.00</span>
               </div>
-              <div className="flex justify-between mb-2">
+
+              {/* Note about shipping - Mobile */}
+              <div className="bg-blue-50 border border-blue-200 rounded p-2 mb-2">
+                <p className="text-xs text-blue-800 font-jost">
+                  💡 Shipping will be calculated in next step
+                </p>
+              </div>
+
+              <div className="hidden">
                 <span className="text-sm font-suez">Delivery charge</span>
-                <span className="text-sm font-medium font-suez">₹{deliveryCharge}.00</span>
+                <span className="text-sm font-medium font-suez">TBD</span>
               </div>
               {appliedCoupon && discount > 0 && (
                 <div className="flex justify-between mb-2 text-green-600">

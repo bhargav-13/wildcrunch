@@ -137,11 +137,48 @@ export const wishlistAPI = {
     api.delete('/wishlist/clear'),
 };
 
+// Shipping API
+export const shippingAPI = {
+  // Check if pincode is serviceable
+  checkPincode: (pincode: string) =>
+    api.post('/shipping/check-pincode', { pincode }),
+
+  // Calculate shipping rate
+  calculateRate: (data: {
+    toPincode: string;
+    weight?: number;
+    cartTotal: number;
+    paymentMode?: string;
+  }) =>
+    api.post('/shipping/calculate-rate', {
+      toPincode: data.toPincode,
+      weight: data.weight || 0.5,
+      productMrp: data.cartTotal,
+      paymentMode: data.paymentMode || 'prepaid',
+    }),
+
+  // Track shipment
+  track: (awbNumber: string) =>
+    api.post('/shipping/track', { awbNumber }),
+
+  // Get shipping label (Admin)
+  getLabel: (awbNumbers: string, pageSize?: string) =>
+    api.post('/shipping/label', { awbNumbers, pageSize }),
+
+  // Cancel shipment (Admin)
+  cancel: (awbNumbers: string) =>
+    api.post('/shipping/cancel', { awbNumbers }),
+};
+
 // Orders API
 export const ordersAPI = {
+  // Calculate shipping for cart
+  calculateShipping: (pincode: string, cartTotal: number) =>
+    api.post('/orders/calculate-shipping', { pincode, cartTotal }),
+
   // Create unpaid order from cart (Step 1)
-  createFromCart: () =>
-    api.post('/orders/create-from-cart'),
+  createFromCart: (shippingPrice?: number) =>
+    api.post('/orders/create-from-cart', { shippingPrice }),
 
   // Update order with shipping address (Step 2)
   updateAddress: (orderId: string, shippingAddress: any) =>
@@ -170,6 +207,16 @@ export const ordersAPI = {
   // Get active coupons (public)
   getActiveCoupons: () =>
     api.get('/coupons/active'),
+
+  // Tracking methods
+  getTracking: (id: string) =>
+    api.get(`/orders/${id}/tracking`),
+
+  syncTracking: (id: string) =>
+    api.post(`/orders/${id}/sync-tracking`),
+
+  printLabel: (id: string) =>
+    api.get(`/orders/${id}/label`),
 
   // Admin only
   getAllAdmin: () =>

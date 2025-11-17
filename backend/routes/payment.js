@@ -5,6 +5,7 @@ import { protect } from '../middleware/auth.js';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import { sendOrderNotification } from '../utils/sendEmail.js';
+import ithinkLogistics from '../utils/ithinkLogistics.js';
 
 const router = express.Router();
 
@@ -141,6 +142,109 @@ router.post('/verify', protect, async (req, res) => {
     await order.populate('items.product');
 
     console.log('Payment successful for order:', order.orderNumber);
+
+    // Create shipment with iThink Logistics
+    try {
+      if (order.shippingAddress && order.shippingAddress.pincode) {
+        console.log('📦 Creating shipment with iThink Logistics...');
+
+        // Calculate total weight based on items (default 0.5kg per item)
+        const totalWeight = order.items.reduce((acc, item) => acc + (item.quantity * 0.5), 0);
+
+        const shipmentData = {
+          orderId: order.orderNumber,
+          orderDate: order.createdAt,
+          shippingAddress: order.shippingAddress,
+          billingAddress: order.shippingAddress, // Use shipping as billing if not separate
+          items: order.items.map(item => ({
+            name: item.name,
+            productId: item.productId,
+            sku: item.productId,
+            quantity: item.quantity,
+            price: item.priceNumeric,
+            discount: 0,
+            hsnCode: '00000',
+          })),
+          pricing: {
+            totalAmount: order.totalPrice,
+            shippingPrice: order.shippingPrice,
+            discount: order.coupon?.discount || 0,
+            transactionFee: 0,
+          },
+          dimensions: {
+            weight: totalWeight,
+            length: 15,
+            width: 15,
+            height: 10,
+          },
+          paymentMode: order.paymentMethod === 'razorpay' ? 'prepaid' : 'COD',
+        };
+
+        console.log('📦 Shipment data:', JSON.stringify(shipmentData, null, 2));
+
+        const shipmentResult = await ithinkLogistics.createShipment(shipmentData);
+
+        console.log('📦 Shipment API response:', JSON.stringify(shipmentResult, null, 2));
+
+        // Check if shipment was created successfully
+        // iThink API returns status as string "success" or "error", not boolean
+        if (shipmentResult && (shipmentResult.status === 'success' || shipmentResult.status === true)) {
+          // Extract AWB number from response
+          // API can return in different formats:
+          // 1. data.awb_number_list[0]
+          // 2. data.awb
+          // 3. data["1"].waybill (for batch creation)
+          let awbNumber = shipmentResult.data?.awb_number_list?.[0] || shipmentResult.data?.awb;
+
+          // Check batch response format
+          if (!awbNumber && shipmentResult.data) {
+            const firstKey = Object.keys(shipmentResult.data)[0];
+            if (firstKey && shipmentResult.data[firstKey]) {
+              awbNumber = shipmentResult.data[firstKey].waybill || shipmentResult.data[firstKey].awb;
+            }
+          }
+
+          if (awbNumber) {
+            // Extract courier name
+            let courierName = shipmentResult.data?.courier_name;
+            if (!courierName && shipmentResult.data) {
+              const firstKey = Object.keys(shipmentResult.data)[0];
+              if (firstKey && shipmentResult.data[firstKey]) {
+                courierName = shipmentResult.data[firstKey].logistic_name;
+              }
+            }
+
+            // Update order with shipping details
+            order.shippingDetails = {
+              provider: 'ithink_logistics',
+              awbNumber: awbNumber.toString(),
+              trackingId: awbNumber.toString(),
+              courierName: courierName || 'Delhivery',
+              shipmentId: shipmentResult.data?.shipment_id,
+              shippingStatus: 'created',
+              createdAt: new Date(),
+              statusHistory: [{
+                status: 'created',
+                message: 'Shipment created successfully',
+                timestamp: new Date(),
+              }],
+            };
+
+            await order.save();
+            console.log('✅ Shipment created successfully with AWB:', awbNumber);
+          } else {
+            console.error('⚠️ No AWB number in successful response:', shipmentResult);
+          }
+        } else {
+          console.error('❌ Shipment creation returned error status:', shipmentResult);
+        }
+      }
+    } catch (shipmentError) {
+      console.error('❌ Shipment creation failed with exception:', shipmentError);
+      console.error('❌ Full shipment error:', shipmentError.response?.data || shipmentError.message);
+      // Don't fail the payment verification if shipment creation fails
+      // Admin can create it manually later
+    }
 
     // Send email notification to admin
     try {

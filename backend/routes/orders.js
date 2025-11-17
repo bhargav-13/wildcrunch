@@ -4,6 +4,7 @@ import Order from '../models/Order.js';
 import Cart from '../models/Cart.js';
 import Product from '../models/Product.js';
 import { protect, admin } from '../middleware/auth.js';
+import ithinkLogistics from '../utils/ithinkLogistics.js';
 
 const router = express.Router();
 
@@ -19,17 +20,110 @@ const getRazorpay = () => {
   return razorpayInstance;
 };
 
+// @route   POST /api/orders/calculate-shipping
+// @desc    Calculate shipping rate for cart
+// @access  Private
+router.post('/calculate-shipping', protect, async (req, res) => {
+  try {
+    const { pincode, cartTotal } = req.body;
+
+    if (!pincode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Delivery pincode is required',
+      });
+    }
+
+    // Check pincode serviceability first
+    try {
+      const pincodeCheck = await ithinkLogistics.checkPincode(pincode);
+
+      if (!pincodeCheck || pincodeCheck.status === false) {
+        return res.status(400).json({
+          success: false,
+          serviceable: false,
+          message: 'Delivery not available to this pincode',
+        });
+      }
+    } catch (error) {
+      console.error('Pincode check error:', error);
+      // Continue with default shipping if API fails
+    }
+
+    // Calculate shipping rate
+    try {
+      console.log(`📍 Calculate shipping: ${pincode} | Cart: ₹${cartTotal}`);
+
+      const rateResult = await ithinkLogistics.getRate({
+        fromPincode: '400067', // Your warehouse pincode
+        toPincode: pincode,
+        weight: 0.5, // Default weight 500g
+        paymentMode: 'prepaid',
+        productMrp: cartTotal || 100,
+      });
+
+      console.log('📦 iThink API Response:', JSON.stringify(rateResult, null, 2));
+
+      // Extract shipping price and expected delivery from response
+      let shippingPrice = 60; // Default fallback
+      let expectedDeliveryDate = null;
+
+      if (rateResult?.data && Array.isArray(rateResult.data) && rateResult.data.length > 0) {
+        // Get the first available rate
+        const firstRate = rateResult.data[0];
+        shippingPrice = firstRate.rate || 60;
+
+        // Extract expected delivery from parent response object (not from individual rate)
+        expectedDeliveryDate = rateResult.expected_delivery_date ||
+                              rateResult.expectedDeliveryDate ||
+                              rateResult.edd;
+
+        console.log(`✅ Shipping: ₹${shippingPrice} | Expected delivery: ${expectedDeliveryDate || 'Not provided'}`);
+      } else {
+        console.log(`⚠️ No rate data in response, using default shipping: ₹60`);
+        console.log('Response structure:', JSON.stringify(rateResult, null, 2));
+      }
+
+      res.json({
+        success: true,
+        serviceable: true,
+        shippingPrice: parseFloat(shippingPrice),
+        expectedDeliveryDate: expectedDeliveryDate,
+        data: rateResult,
+      });
+    } catch (error) {
+      console.error('Rate calculation error:', error);
+      console.error('Full error details:', error.response?.data || error.message);
+      // Fallback to fixed shipping
+      res.json({
+        success: true,
+        serviceable: true,
+        shippingPrice: 60,
+        message: 'Using standard shipping rate',
+      });
+    }
+  } catch (error) {
+    console.error('Calculate shipping error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
 // @route   POST /api/orders/create-from-cart
 // @desc    Create unpaid order from cart (Step 1: After cart, before address)
 // @access  Private
 router.post('/create-from-cart', protect, async (req, res) => {
   console.log('🛒 CREATE ORDER FROM CART - Route hit!');
   console.log('User:', req.user?._id);
-  
+
   try {
+    const { shippingPrice: customShippingPrice } = req.body;
+
     // Get cart items
     const cart = await Cart.findOne({ user: req.user._id });
-    
+
     if (!cart || !cart.items || cart.items.length === 0) {
       return res.status(400).json({
         success: false,
@@ -43,7 +137,7 @@ router.post('/create-from-cart', protect, async (req, res) => {
 
     for (const cartItem of cart.items) {
       const product = await Product.findById(cartItem.productId);
-      
+
       if (!product) {
         return res.status(404).json({
           success: false,
@@ -52,7 +146,7 @@ router.post('/create-from-cart', protect, async (req, res) => {
       }
 
       const itemPrice = cartItem.packPrice || cartItem.priceNumeric;
-      
+
       orderItems.push({
         product: product._id,  // MongoDB ObjectId
         productId: cartItem.productId,
@@ -67,7 +161,8 @@ router.post('/create-from-cart', protect, async (req, res) => {
       itemsPrice += itemPrice * cartItem.quantity;
     }
 
-    const shippingPrice = 60;  // Fixed shipping
+    // Use dynamic shipping price if provided, otherwise fallback to fixed
+    const shippingPrice = customShippingPrice || 60;
     const totalPrice = itemsPrice + shippingPrice;
 
     console.log(`💰 Creating Razorpay order for amount: ₹${totalPrice}`);
@@ -180,12 +275,97 @@ router.put('/:id/address', protect, async (req, res) => {
 
     // Update shipping address
     order.shippingAddress = shippingAddress;
+
+    // Calculate dynamic shipping based on pincode
+    let dynamicShippingPrice = 60; // Default fallback
+
+    if (shippingAddress.pincode) {
+      try {
+        console.log(`📍 Calculating shipping for pincode: ${shippingAddress.pincode}`);
+        console.log(`📦 Request params:`, {
+          fromPincode: '400067',
+          toPincode: shippingAddress.pincode,
+          weight: 0.5,
+          paymentMode: order.paymentMethod === 'razorpay' ? 'prepaid' : 'COD',
+          productMrp: order.itemsPrice,
+        });
+
+        const rateResult = await ithinkLogistics.getRate({
+          fromPincode: '400067', // Your warehouse pincode
+          toPincode: shippingAddress.pincode,
+          weight: 0.5, // Default weight
+          paymentMode: order.paymentMethod === 'razorpay' ? 'prepaid' : 'COD',
+          productMrp: order.itemsPrice,
+        });
+
+        // Log the full API response for debugging
+        console.log('🔍 Full API Response:', JSON.stringify(rateResult, null, 2));
+
+        // Extract shipping price and expected delivery from API response
+        if (rateResult?.data && Array.isArray(rateResult.data) && rateResult.data.length > 0) {
+          // Get the first available rate (they're all the same in this case)
+          const firstRate = rateResult.data[0];
+          dynamicShippingPrice = firstRate.rate || 60;
+
+          // Extract expected delivery date
+          const expectedDeliveryDate = firstRate.expected_delivery_date || firstRate.expectedDeliveryDate;
+
+          // Store in shippingDetails if available
+          if (expectedDeliveryDate) {
+            if (!order.shippingDetails) {
+              order.shippingDetails = {};
+            }
+            // Calculate estimated delivery date
+            order.shippingDetails.estimatedDelivery = expectedDeliveryDate;
+            console.log(`📅 Expected delivery: ${expectedDeliveryDate}`);
+          }
+
+          console.log(`✅ Dynamic shipping calculated: ₹${dynamicShippingPrice} from ${firstRate.logistic_name}`);
+        } else {
+          console.log(`⚠️ Could not find shipping price in API response`);
+          console.log(`⚠️ Using default shipping: ₹60`);
+        }
+      } catch (shippingError) {
+        console.error('❌ Shipping calculation error:', shippingError.message);
+        console.error('❌ Full error:', shippingError);
+        console.log('⚠️ Using default shipping: ₹60');
+        // Continue with default shipping price
+      }
+    }
+
+    // Update shipping price and recalculate total
+    order.shippingPrice = dynamicShippingPrice;
+    order.totalPrice = order.itemsPrice + dynamicShippingPrice;
+
+    console.log(`💰 Order totals updated - Items: ₹${order.itemsPrice}, Shipping: ₹${order.shippingPrice}, Total: ₹${order.totalPrice}`);
+
+    // Create new Razorpay order with updated amount
+    try {
+      const razorpay = getRazorpay();
+      const newRazorpayOrder = await razorpay.orders.create({
+        amount: Math.round(order.totalPrice * 100), // Amount in paise
+        currency: 'INR',
+        receipt: `receipt_${Date.now()}`,
+        notes: {
+          orderId: order._id.toString(),
+          updated: 'shipping_calculated',
+        },
+      });
+
+      // Update order with new Razorpay order ID
+      order.paymentDetails.razorpayOrderId = newRazorpayOrder.id;
+      console.log(`✅ New Razorpay order created: ${newRazorpayOrder.id} for ₹${order.totalPrice}`);
+    } catch (razorpayError) {
+      console.error('❌ Failed to create new Razorpay order:', razorpayError);
+      // Continue with existing Razorpay order - payment might fail but we can handle it
+    }
+
     await order.save();
 
     res.json({
       success: true,
       data: order,
-      message: 'Shipping address added successfully'
+      message: 'Shipping address added and shipping calculated'
     });
   } catch (error) {
     console.error('Address update error:', error);
@@ -400,6 +580,549 @@ router.put('/:id/status', protect, admin, async (req, res) => {
       message: 'Order status updated'
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/orders/:id/tracking
+// @desc    Get order tracking details
+// @access  Private
+router.get('/:id/tracking', protect, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Make sure user owns this order or is admin
+    if (order.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view this order'
+      });
+    }
+
+    // If order has AWB number, fetch latest tracking from iThink Logistics
+    if (order.shippingDetails?.awbNumber) {
+      try {
+        console.log(`📦 Fetching tracking for AWB: ${order.shippingDetails.awbNumber}`);
+
+        const trackingResult = await ithinkLogistics.trackShipment(order.shippingDetails.awbNumber);
+
+        console.log('📦 Tracking result:', JSON.stringify(trackingResult, null, 2));
+
+        // Check if tracking was successful - API returns status_code: 200 or status: 'success'
+        const isSuccess = trackingResult && (
+          trackingResult.status === 'success' ||
+          trackingResult.status === true ||
+          trackingResult.status_code === 200 ||
+          trackingResult.data
+        );
+
+        if (isSuccess) {
+          // Extract tracking data from response
+          // API returns data in format: { data: { 'AWB_NUMBER': { tracking info } } }
+          let trackingData = null;
+
+          if (trackingResult.data) {
+            const awbKey = Object.keys(trackingResult.data)[0];
+            if (awbKey) {
+              trackingData = trackingResult.data[awbKey];
+            } else {
+              trackingData = trackingResult.data[0] || trackingResult.data;
+            }
+          }
+
+          if (trackingData && trackingData.current_status) {
+            // Map status to our enum values
+            const statusMapping = {
+              'pending': 'pending',
+              'created': 'created',
+              'picked up': 'picked_up',
+              'in transit': 'in_transit',
+              'out for delivery': 'out_for_delivery',
+              'delivered': 'delivered',
+              'failed': 'failed',
+              'cancelled': 'cancelled',
+              'rto': 'failed',
+              'lost': 'failed',
+            };
+
+            const normalizedStatus = trackingData.current_status.toLowerCase();
+            const mappedStatus = statusMapping[normalizedStatus] || 'in_transit';
+
+            // Update shipping status
+            order.shippingDetails.shippingStatus = mappedStatus;
+            order.shippingDetails.lastTrackedAt = new Date();
+
+            await order.save();
+
+            console.log('✅ Tracking updated for user view - Status:', trackingData.current_status);
+
+            res.json({
+              success: true,
+              data: {
+                order: {
+                  orderNumber: order.orderNumber,
+                  orderStatus: order.orderStatus,
+                  createdAt: order.createdAt,
+                  totalPrice: order.totalPrice,
+                  shippingAddress: order.shippingAddress,
+                },
+                shipping: order.shippingDetails,
+                liveTracking: trackingData
+              }
+            });
+          } else {
+            console.log('⚠️ No tracking data in response');
+            res.json({
+              success: true,
+              data: {
+                order: {
+                  orderNumber: order.orderNumber,
+                  orderStatus: order.orderStatus,
+                  createdAt: order.createdAt,
+                  totalPrice: order.totalPrice,
+                  shippingAddress: order.shippingAddress,
+                },
+                shipping: order.shippingDetails,
+                message: 'Tracking data not available yet'
+              }
+            });
+          }
+        } else {
+          console.log('❌ Tracking API returned error');
+          // No live tracking available, return order shipping details
+          res.json({
+            success: true,
+            data: {
+              order: {
+                orderNumber: order.orderNumber,
+                orderStatus: order.orderStatus,
+                createdAt: order.createdAt,
+                totalPrice: order.totalPrice,
+                shippingAddress: order.shippingAddress,
+              },
+              shipping: order.shippingDetails,
+              message: 'Live tracking not available yet'
+            }
+          });
+        }
+      } catch (trackingError) {
+        console.error('Tracking fetch error:', trackingError);
+        // Return order details even if tracking fails
+        res.json({
+          success: true,
+          data: {
+            order: {
+              orderNumber: order.orderNumber,
+              orderStatus: order.orderStatus,
+              createdAt: order.createdAt,
+              totalPrice: order.totalPrice,
+              shippingAddress: order.shippingAddress,
+            },
+            shipping: order.shippingDetails,
+            message: 'Could not fetch live tracking'
+          }
+        });
+      }
+    } else {
+      // No shipment created yet
+      res.json({
+        success: true,
+        data: {
+          order: {
+            orderNumber: order.orderNumber,
+            orderStatus: order.orderStatus,
+            createdAt: order.createdAt,
+            totalPrice: order.totalPrice,
+            shippingAddress: order.shippingAddress,
+          },
+          message: 'Shipment not created yet'
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Get tracking error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/orders/:id/sync-tracking
+// @desc    Sync latest tracking status from iThink Logistics (Admin)
+// @access  Private/Admin
+router.post('/:id/sync-tracking', protect, admin, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    if (!order.shippingDetails?.awbNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'No AWB number found for this order'
+      });
+    }
+
+    console.log(`🔄 Syncing tracking for AWB: ${order.shippingDetails.awbNumber}`);
+
+    const trackingResult = await ithinkLogistics.trackShipment(order.shippingDetails.awbNumber);
+
+    console.log('📦 Tracking API response:', JSON.stringify(trackingResult, null, 2));
+
+    // Check if request was successful
+    // API returns data directly with status_code: 200, no top-level status field
+    const isSuccess = trackingResult && (
+      trackingResult.status === 'success' ||
+      trackingResult.status === true ||
+      trackingResult.status_code === 200 ||
+      trackingResult.data  // If data exists, it's likely successful
+    );
+
+    if (isSuccess) {
+      // Extract tracking data from response
+      // API returns data in format: { data: { 'AWB_NUMBER': { tracking info } } }
+      let trackingData = null;
+
+      if (trackingResult.data) {
+        // Get the first key (AWB number) from data object
+        const awbKey = Object.keys(trackingResult.data)[0];
+        if (awbKey) {
+          trackingData = trackingResult.data[awbKey];
+        } else {
+          // Fallback to array format
+          trackingData = trackingResult.data[0] || trackingResult.data;
+        }
+      }
+
+      if (trackingData && trackingData.current_status) {
+        // Map iThink Logistics status to our enum values
+        const statusMapping = {
+          'pending': 'pending',
+          'created': 'created',
+          'picked up': 'picked_up',
+          'in transit': 'in_transit',
+          'out for delivery': 'out_for_delivery',
+          'delivered': 'delivered',
+          'failed': 'failed',
+          'cancelled': 'cancelled',
+          'rto': 'failed',
+          'lost': 'failed',
+        };
+
+        const normalizedStatus = trackingData.current_status.toLowerCase();
+        const mappedStatus = statusMapping[normalizedStatus] || 'in_transit';
+
+        // Update shipping details with latest tracking info
+        order.shippingDetails.shippingStatus = mappedStatus;
+        order.shippingDetails.lastTrackedAt = new Date();
+
+        // Add to status history if new status
+        const lastStatus = order.shippingDetails.statusHistory[order.shippingDetails.statusHistory.length - 1];
+        if (!lastStatus || lastStatus.status !== trackingData.current_status) {
+          order.shippingDetails.statusHistory.push({
+            status: trackingData.current_status,
+            message: trackingData.last_scan_details?.scan_datetime || 'Status updated',
+            timestamp: new Date(),
+            location: trackingData.last_scan_details?.location || ''
+          });
+        }
+
+        await order.save();
+        console.log('✅ Tracking synced successfully - Status:', trackingData.current_status, '→', mappedStatus);
+
+        res.json({
+          success: true,
+          data: order,
+          tracking: trackingData,
+          message: 'Tracking synced successfully'
+        });
+      } else {
+        console.error('⚠️ No tracking data in response:', trackingResult);
+        res.status(400).json({
+          success: false,
+          message: 'No tracking data available',
+          data: trackingResult
+        });
+      }
+    } else {
+      console.error('❌ Tracking returned error status:', trackingResult);
+      res.status(400).json({
+        success: false,
+        message: trackingResult?.message || 'Failed to fetch tracking from logistics provider',
+        data: trackingResult
+      });
+    }
+  } catch (error) {
+    console.error('❌ Sync tracking error:', error);
+    console.error('❌ Full tracking error:', error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/orders/:id/create-shipment
+// @desc    Manually create shipment for an order (Admin)
+// @access  Private/Admin
+router.post('/:id/create-shipment', protect, admin, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('items.product');
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Check if shipment already exists
+    if (order.shippingDetails?.awbNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Shipment already created for this order',
+        data: { awbNumber: order.shippingDetails.awbNumber }
+      });
+    }
+
+    // Check if order has shipping address
+    if (!order.shippingAddress || !order.shippingAddress.pincode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order does not have a shipping address'
+      });
+    }
+
+    console.log(`📦 Manually creating shipment for order: ${order.orderNumber}`);
+
+    // Calculate total weight based on items (default 0.5kg per item)
+    const totalWeight = order.items.reduce((acc, item) => acc + (item.quantity * 0.5), 0);
+
+    // Add timestamp suffix to order number to avoid duplicates in iThink system
+    const uniqueOrderId = `${order.orderNumber}-${Date.now()}`;
+    console.log(`📦 Using unique order ID for iThink: ${uniqueOrderId}`);
+
+    const shipmentData = {
+      orderId: uniqueOrderId,
+      orderDate: order.createdAt,
+      shippingAddress: order.shippingAddress,
+      billingAddress: order.shippingAddress,
+      items: order.items.map(item => ({
+        name: item.name,
+        productId: item.productId,
+        sku: item.productId,
+        quantity: item.quantity,
+        price: item.priceNumeric,
+        discount: 0,
+        hsnCode: '00000',
+      })),
+      pricing: {
+        totalAmount: order.totalPrice,
+        shippingPrice: order.shippingPrice,
+        discount: order.coupon?.discount || 0,
+        transactionFee: 0,
+      },
+      dimensions: {
+        weight: totalWeight,
+        length: 15,
+        width: 15,
+        height: 10,
+      },
+      paymentMode: order.paymentMethod === 'razorpay' ? 'prepaid' : 'COD',
+    };
+
+    console.log('📦 Shipment data:', JSON.stringify(shipmentData, null, 2));
+
+    const shipmentResult = await ithinkLogistics.createShipment(shipmentData);
+
+    console.log('📦 Shipment API response:', JSON.stringify(shipmentResult, null, 2));
+
+    // Check if shipment was created successfully
+    // iThink API returns status as string "success" or "error", not boolean
+    if (shipmentResult && (shipmentResult.status === 'success' || shipmentResult.status === true)) {
+      // Extract AWB number from response
+      // API can return in different formats:
+      // 1. data.awb_number_list[0]
+      // 2. data.awb
+      // 3. data["1"].waybill (for batch creation)
+      let awbNumber = shipmentResult.data?.awb_number_list?.[0] || shipmentResult.data?.awb;
+
+      // Check batch response format
+      if (!awbNumber && shipmentResult.data) {
+        const firstKey = Object.keys(shipmentResult.data)[0];
+        if (firstKey && shipmentResult.data[firstKey]) {
+          awbNumber = shipmentResult.data[firstKey].waybill || shipmentResult.data[firstKey].awb;
+        }
+      }
+
+      if (!awbNumber) {
+        console.error('⚠️ No AWB number found in response:', shipmentResult);
+        return res.status(400).json({
+          success: false,
+          message: 'No AWB number received from logistics provider',
+          data: shipmentResult
+        });
+      }
+
+      // Extract courier name
+      let courierName = shipmentResult.data?.courier_name;
+      if (!courierName && shipmentResult.data) {
+        const firstKey = Object.keys(shipmentResult.data)[0];
+        if (firstKey && shipmentResult.data[firstKey]) {
+          courierName = shipmentResult.data[firstKey].logistic_name;
+        }
+      }
+
+      // Update order with shipping details
+      order.shippingDetails = {
+        provider: 'ithink_logistics',
+        awbNumber: awbNumber.toString(),
+        trackingId: awbNumber.toString(),
+        courierName: courierName || 'Delhivery',
+        shipmentId: shipmentResult.data?.shipment_id,
+        shippingStatus: 'created',
+        createdAt: new Date(),
+        statusHistory: [{
+          status: 'created',
+          message: 'Shipment created successfully',
+          timestamp: new Date(),
+        }],
+      };
+
+      await order.save();
+      console.log('✅ Shipment created successfully with AWB:', awbNumber);
+
+      res.json({
+        success: true,
+        data: order,
+        message: `Shipment created successfully with AWB: ${awbNumber}`
+      });
+    } else {
+      console.error('❌ Shipment creation failed:', shipmentResult);
+
+      // Extract error message from response
+      let errorMessage = 'Failed to create shipment';
+      if (shipmentResult?.data) {
+        const firstKey = Object.keys(shipmentResult.data)[0];
+        if (firstKey && shipmentResult.data[firstKey]?.remark) {
+          errorMessage = shipmentResult.data[firstKey].remark;
+        }
+      }
+
+      res.status(400).json({
+        success: false,
+        message: errorMessage,
+        data: shipmentResult
+      });
+    }
+  } catch (error) {
+    console.error('❌ Create shipment error:', error);
+    console.error('❌ Full error:', error.response?.data || error);
+    res.status(500).json({
+      success: false,
+      message: error.response?.data?.message || error.message || 'Failed to create shipment',
+      error: error.response?.data || error.message
+    });
+  }
+});
+
+// @route   GET /api/orders/:id/label
+// @desc    Get shipping label (Admin)
+// @access  Private/Admin
+router.get('/:id/label', protect, admin, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    if (!order.shippingDetails?.awbNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'No AWB number found for this order'
+      });
+    }
+
+    console.log(`🖨️ Generating label for AWB: ${order.shippingDetails.awbNumber}`);
+
+    const labelResult = await ithinkLogistics.getShippingLabel(order.shippingDetails.awbNumber, 'A4');
+
+    console.log('📦 Label API response:', JSON.stringify(labelResult, null, 2));
+
+    // Check if request was successful
+    // API can return status: 'success' OR just status_code: 200
+    const isSuccess = labelResult && (
+      labelResult.status === 'success' ||
+      labelResult.status === true ||
+      labelResult.status_code === 200
+    );
+
+    if (isSuccess) {
+      // Extract label URL from response
+      // API can return in different formats:
+      // 1. data.label_url
+      // 2. file_name (direct URL)
+      // 3. data[key].label_url
+      let labelUrl = labelResult.data?.label_url || labelResult.file_name;
+
+      // Check if it's in a nested format
+      if (!labelUrl && labelResult.data) {
+        const firstKey = Object.keys(labelResult.data)[0];
+        if (firstKey && labelResult.data[firstKey]?.label_url) {
+          labelUrl = labelResult.data[firstKey].label_url;
+        }
+      }
+
+      if (labelUrl) {
+        // Store label URL in order
+        order.shippingDetails.labelUrl = labelUrl;
+        await order.save();
+        console.log('✅ Label generated successfully:', labelUrl);
+
+        res.json({
+          success: true,
+          data: { label_url: labelUrl },
+          message: 'Label generated successfully'
+        });
+      } else {
+        console.error('⚠️ No label URL in response:', labelResult);
+        res.status(400).json({
+          success: false,
+          message: 'No label URL in response',
+          data: labelResult
+        });
+      }
+    } else {
+      console.error('❌ Label generation returned error status:', labelResult);
+      res.status(400).json({
+        success: false,
+        message: labelResult?.message || 'Failed to generate label',
+        data: labelResult
+      });
+    }
+  } catch (error) {
+    console.error('❌ Generate label error:', error);
+    console.error('❌ Full label error:', error.response?.data || error.message);
     res.status(500).json({
       success: false,
       message: error.message

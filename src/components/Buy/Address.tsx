@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Plus } from 'lucide-react';
+import { ChevronLeft, Plus, CheckCircle2, XCircle, Loader2, Calendar } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../Header';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,10 @@ const AddressPage = () => {
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
+  const [pincodeServiceable, setPincodeServiceable] = useState<boolean | null>(null);
+  const [checkingPincode, setCheckingPincode] = useState(false);
+  const [shippingRate, setShippingRate] = useState<number | null>(null);
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -68,6 +72,12 @@ const AddressPage = () => {
           const defaultAddress = addresses.find((addr: any) => addr.isDefault);
           if (defaultAddress && !showNewAddressForm) {
             setSelectedAddressId(defaultAddress._id);
+            // Calculate shipping for default address
+            if (defaultAddress.pincode && orderResponse.data.data) {
+              setTimeout(() => {
+                checkPincodeServiceability(defaultAddress.pincode);
+              }, 500);
+            }
           }
         }
       } catch (error: any) {
@@ -92,17 +102,89 @@ const AddressPage = () => {
     }
   }, [isAuthenticated, user, navigate, orderId]);
 
+  // Check pincode serviceability and calculate shipping
+  const checkPincodeServiceability = async (pincode: string) => {
+    if (!pincode || pincode.length !== 6) {
+      setPincodeServiceable(null);
+      setShippingRate(null);
+      setExpectedDeliveryDate(null);
+      return;
+    }
+
+    setCheckingPincode(true);
+    try {
+      const response = await ordersAPI.calculateShipping(pincode, order?.itemsPrice || 0);
+      console.log('📦 Shipping calculation response:', response.data);
+      console.log('📦 Full response data:', JSON.stringify(response.data, null, 2));
+
+      if (response.data.success && response.data.serviceable) {
+        setPincodeServiceable(true);
+        setShippingRate(response.data.shippingPrice || 60);
+
+        // Set expected delivery date - check multiple possible field names
+        let deliveryDate = null;
+
+        // Check direct fields first
+        if (response.data.expectedDeliveryDate) {
+          deliveryDate = response.data.expectedDeliveryDate;
+        } else if (response.data.expected_delivery_date) {
+          deliveryDate = response.data.expected_delivery_date;
+        }
+        // Check in nested data object
+        else if (response.data.data) {
+          const rateData = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
+          deliveryDate = rateData?.expected_delivery_date || rateData?.expectedDeliveryDate;
+        }
+
+        if (deliveryDate) {
+          console.log('📅 Setting expected delivery date:', deliveryDate);
+          setExpectedDeliveryDate(deliveryDate);
+          console.log('✅ State updated - expectedDeliveryDate:', deliveryDate);
+        } else {
+          console.log('⚠️ No expected delivery date found in response');
+          setExpectedDeliveryDate(null);
+        }
+
+        toast.success('Delivery available to this pincode!');
+      } else {
+        setPincodeServiceable(false);
+        setShippingRate(null);
+        setExpectedDeliveryDate(null);
+        toast.error('Delivery not available to this pincode');
+      }
+    } catch (error: any) {
+      console.error('Pincode check error:', error);
+      setPincodeServiceable(null);
+      setShippingRate(null);
+      setExpectedDeliveryDate(null);
+      // Fallback - allow checkout with default shipping
+    } finally {
+      setCheckingPincode(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+
+    // Check pincode when user types in zipcode field
+    if (name === 'zipcode' && value.length === 6) {
+      checkPincodeServiceability(value);
+    }
   };
 
-  const handleAddressSelect = (addressId: string) => {
+  const handleAddressSelect = async (addressId: string) => {
     setSelectedAddressId(addressId);
     setShowNewAddressForm(false);
+
+    // Calculate shipping for selected address
+    const selectedAddress = savedAddresses.find(addr => addr._id === addressId);
+    if (selectedAddress && selectedAddress.pincode) {
+      await checkPincodeServiceability(selectedAddress.pincode);
+    }
   };
 
   const handleNewAddress = () => {
@@ -190,10 +272,22 @@ const AddressPage = () => {
     }
 
     try {
-      // Update order with shipping address (Step 2)
+      // Update order with shipping address (Step 2) - This will also calculate shipping dynamically
       const response = await ordersAPI.updateAddress(orderId, shippingAddress);
 
       if (response.data.success) {
+        const updatedOrder = response.data.data;
+
+        // Log the updated shipping details
+        console.log('�� Shipping calculated:', {
+          shippingPrice: updatedOrder.shippingPrice,
+          totalPrice: updatedOrder.totalPrice
+        });
+
+        // Update local order state with new shipping price
+        setOrder(updatedOrder);
+        setShippingRate(updatedOrder.shippingPrice);
+
         // Save new address to profile only if it's a new address
         if (showNewAddressForm && !selectedAddressId) {
           try {
@@ -214,7 +308,8 @@ const AddressPage = () => {
           }
         }
 
-        toast.success('Address saved successfully!');
+        toast.success(`Address saved! Shipping: ₹${updatedOrder.shippingPrice}`);
+
         // Navigate to payment page with order ID
         navigate(`/payment?orderId=${orderId}`);
       }
@@ -236,8 +331,8 @@ const AddressPage = () => {
   });
 
   const subtotal = order?.itemsPrice || 0;
-  const deliveryCharge = order?.shippingPrice || 60;
-  const total = order?.totalPrice || 0;
+  const deliveryCharge = shippingRate || order?.shippingPrice || 60;
+  const total = subtotal + deliveryCharge;
 
   // Progress steps
   const steps = [
@@ -246,6 +341,9 @@ const AddressPage = () => {
     { name: 'Payment', completed: false, active: false },
     { name: 'Confirm', completed: false, active: false },
   ];
+
+  // Debug log for rendering
+  console.log('🎨 Rendering Address page - expectedDeliveryDate:', expectedDeliveryDate, 'shippingRate:', shippingRate);
 
   if (loading) {
     return (
@@ -493,15 +591,43 @@ const AddressPage = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                     <div>
                       <label className="block text-sm font-medium mb-2 font-suez">Zipcode*</label>
-                      <input
-                        type="text"
-                        name="zipcode"
-                        placeholder="Code"
-                        value={formData.zipcode}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          name="zipcode"
+                          placeholder="Code"
+                          value={formData.zipcode}
+                          onChange={handleInputChange}
+                          maxLength={6}
+                          className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                          style={{ fontFamily: 'Jost, sans-serif' }}
+                        />
+                        {checkingPincode && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <Loader2 className="w-5 h-5 text-[#F1B213] animate-spin" />
+                          </div>
+                        )}
+                        {!checkingPincode && pincodeServiceable === true && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <CheckCircle2 className="w-5 h-5 text-green-500" />
+                          </div>
+                        )}
+                        {!checkingPincode && pincodeServiceable === false && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <XCircle className="w-5 h-5 text-red-500" />
+                          </div>
+                        )}
+                      </div>
+                      {pincodeServiceable === true && shippingRate !== null && (
+                        <p className="text-xs text-green-600 mt-1 font-jost">
+                          Delivery available • Shipping: ₹{shippingRate}
+                        </p>
+                      )}
+                      {pincodeServiceable === false && (
+                        <p className="text-xs text-red-600 mt-1 font-jost">
+                          Delivery not available to this pincode
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-2 font-suez">City*</label>
@@ -595,7 +721,18 @@ const AddressPage = () => {
 
                 <div className="flex justify-between items-center text-sm lg:text-lg">
                   <span className="font-suez">Delivery charge</span>
-                  <span className="font-medium font-suez">₹{deliveryCharge}.00</span>
+                  {checkingPincode ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-[#F1B213]" />
+                      <span className="font-medium font-suez text-gray-500">Calculating...</span>
+                    </div>
+                  ) : !selectedAddressId && !showNewAddressForm ? (
+                    <span className="font-medium font-suez text-gray-500 text-sm">Select address</span>
+                  ) : shippingRate ? (
+                    <span className="font-medium font-suez">₹{deliveryCharge}.00</span>
+                  ) : (
+                    <span className="font-medium font-suez text-gray-500 text-sm">--</span>
+                  )}
                 </div>
 
                 <div className="border-b border-dashed border-black my-4 lg:my-6"></div>
@@ -604,6 +741,19 @@ const AddressPage = () => {
                   <span className="font-suez">Total:</span>
                   <span className="font-suez">₹{total}.00</span>
                 </div>
+
+                {/* Expected Delivery Date */}
+                {expectedDeliveryDate && shippingRate && (
+                  <div className="mt-4 lg:mt-6 bg-green-50 border border-green-200 rounded-lg p-3 lg:p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="w-4 h-4 text-green-600" />
+                      <span className="font-jost text-green-700 text-sm font-semibold">Expected Delivery</span>
+                    </div>
+                    <p className="font-suez text-base lg:text-lg font-bold text-green-800 ml-6">
+                      {expectedDeliveryDate}
+                    </p>
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="space-y-3 lg:space-y-4 mt-6 lg:mt-8">

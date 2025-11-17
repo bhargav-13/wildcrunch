@@ -79,6 +79,17 @@ export const ordersAPI = {
 
   updateStatus: (id: string, status: string) =>
     api.put(`/orders/${id}/status`, { orderStatus: status }),
+
+  // Tracking methods
+  syncTracking: (id: string) =>
+    api.post(`/orders/${id}/sync-tracking`),
+
+  printLabel: (id: string) =>
+    api.get(`/orders/${id}/label`),
+
+  // Manual shipment creation
+  createShipment: (id: string) =>
+    api.post(`/orders/${id}/create-shipment`),
 };
 
 // Users APIs (if you have user management endpoints)

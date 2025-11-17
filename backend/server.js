@@ -51,6 +51,7 @@ import orderRoutes from './routes/orders.js';
 import paymentRoutes from './routes/payment.js';
 import uploadRoutes from './routes/upload.js';
 import couponRoutes from './routes/coupons.js';
+import shippingRoutes from './routes/shipping.js';
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -61,6 +62,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/coupons', couponRoutes);
+app.use('/api/shipping', shippingRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -83,7 +85,8 @@ app.get('/', (req, res) => {
       cart: '/api/cart',
       wishlist: '/api/wishlist',
       orders: '/api/orders',
-      payment: '/api/payment'
+      payment: '/api/payment',
+      shipping: '/api/shipping'
     }
   });
 });

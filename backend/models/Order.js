@@ -97,6 +97,32 @@ const orderSchema = new mongoose.Schema({
     enum: ['Processing', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'],
     default: 'Processing'
   },
+  shippingDetails: {
+    provider: {
+      type: String,
+      default: 'ithink_logistics'
+    },
+    awbNumber: String,
+    trackingId: String,
+    courierName: String,
+    shipmentId: String,
+    labelUrl: String,
+    manifestUrl: String,
+    estimatedDelivery: Date,
+    shippingStatus: {
+      type: String,
+      enum: ['pending', 'created', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'failed', 'cancelled'],
+      default: 'pending'
+    },
+    statusHistory: [{
+      status: String,
+      message: String,
+      timestamp: Date,
+      location: String
+    }],
+    lastTrackedAt: Date,
+    createdAt: Date
+  },
   deliveredAt: Date,
   createdAt: {
     type: Date,

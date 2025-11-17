@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ordersAPI } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { X, Package, MapPin, CreditCard, User } from 'lucide-react';
+import { X, Package, MapPin, CreditCard, User, Truck, RefreshCw, Printer, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface OrderDetailsModalProps {
@@ -16,6 +16,9 @@ const ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancel
 export default function OrderDetailsModal({ order, onClose }: OrderDetailsModalProps) {
   const [currentStatus, setCurrentStatus] = useState(order.status || 'pending');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isSyncingTracking, setIsSyncingTracking] = useState(false);
+  const [isPrintingLabel, setIsPrintingLabel] = useState(false);
+  const [isCreatingShipment, setIsCreatingShipment] = useState(false);
 
   const handleStatusUpdate = async () => {
     if (currentStatus === order.status) {
@@ -34,6 +37,88 @@ export default function OrderDetailsModal({ order, onClose }: OrderDetailsModalP
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleSyncTracking = async () => {
+    setIsSyncingTracking(true);
+    try {
+      const response = await ordersAPI.syncTracking(order._id);
+      toast.success('Tracking synced successfully');
+      // Refresh the page or update the order data
+      window.location.reload();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to sync tracking');
+      console.error(error);
+    } finally {
+      setIsSyncingTracking(false);
+    }
+  };
+
+  const handlePrintLabel = async () => {
+    setIsPrintingLabel(true);
+    try {
+      const response = await ordersAPI.printLabel(order._id);
+      console.log('Print label response:', response.data);
+
+      if (response.data.success && response.data.data?.label_url) {
+        const labelUrl = response.data.data.label_url;
+        console.log('Opening label URL:', labelUrl);
+
+        // Try to open in new tab
+        const newWindow = window.open(labelUrl, '_blank');
+
+        // Check if popup was blocked
+        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+          // Popup blocked, create download link instead
+          const link = document.createElement('a');
+          link.href = labelUrl;
+          link.target = '_blank';
+          link.download = `shipping-label-${order.orderNumber}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          toast.success('Downloading shipping label...');
+        } else {
+          toast.success('Opening shipping label...');
+        }
+      } else {
+        console.error('No label URL in response:', response.data);
+        toast.error('Label URL not available');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to get label');
+      console.error('Print label error:', error);
+    } finally {
+      setIsPrintingLabel(false);
+    }
+  };
+
+  const handleCreateShipment = async () => {
+    setIsCreatingShipment(true);
+    try {
+      const response = await ordersAPI.createShipment(order._id);
+      toast.success(response.data.message || 'Shipment created successfully');
+      // Refresh the page to show updated order
+      window.location.reload();
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || 'Failed to create shipment';
+      const errorData = error.response?.data?.error;
+
+      toast.error(errorMsg);
+
+      // Log detailed error for debugging
+      if (errorData) {
+        console.error('Shipment creation error details:', errorData);
+      }
+      console.error(error);
+    } finally {
+      setIsCreatingShipment(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
   };
 
   return (
@@ -78,6 +163,159 @@ export default function OrderDetailsModal({ order, onClose }: OrderDetailsModalP
               </div>
             </div>
           </div>
+
+          {/* Shipment Tracking */}
+          {order.shippingDetails?.awbNumber ? (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Truck className="text-primary-500" size={20} />
+                  <h3 className="text-lg font-semibold text-gray-900">Shipment Tracking</h3>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSyncTracking}
+                    disabled={isSyncingTracking}
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                    title="Sync tracking status"
+                  >
+                    <RefreshCw size={16} className={isSyncingTracking ? 'animate-spin' : ''} />
+                    {isSyncingTracking ? 'Syncing...' : 'Sync'}
+                  </button>
+                  <button
+                    onClick={handlePrintLabel}
+                    disabled={isPrintingLabel}
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                    title="Print shipping label"
+                  >
+                    <Printer size={16} />
+                    {isPrintingLabel ? 'Loading...' : 'Print Label'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">AWB Number</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-gray-900">{order.shippingDetails.awbNumber}</p>
+                    <button
+                      onClick={() => copyToClipboard(order.shippingDetails.awbNumber, 'AWB Number')}
+                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                    >
+                      <Copy size={14} className="text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+
+                {order.shippingDetails.courierName && (
+                  <div>
+                    <p className="text-sm text-gray-600">Courier Partner</p>
+                    <p className="font-medium text-gray-900">{order.shippingDetails.courierName}</p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-sm text-gray-600">Shipping Status</p>
+                  <span className="badge bg-blue-100 text-blue-800">
+                    {(order.shippingDetails.shippingStatus || 'pending')
+                      .replace(/_/g, ' ')
+                      .replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                  </span>
+                </div>
+
+                {order.shippingDetails.lastTrackedAt && (
+                  <div>
+                    <p className="text-sm text-gray-600">Last Updated</p>
+                    <p className="font-medium text-gray-900 text-sm">
+                      {formatDate(order.shippingDetails.lastTrackedAt)}
+                    </p>
+                  </div>
+                )}
+
+                {order.shippingDetails.trackingId && (
+                  <div>
+                    <p className="text-sm text-gray-600">Tracking ID</p>
+                    <p className="font-medium text-gray-900">{order.shippingDetails.trackingId}</p>
+                  </div>
+                )}
+
+                {order.shippingDetails.estimatedDelivery && (
+                  <div>
+                    <p className="text-sm text-gray-600">Estimated Delivery</p>
+                    <p className="font-medium text-gray-900 text-sm">
+                      {formatDate(order.shippingDetails.estimatedDelivery)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {order.shippingDetails.labelUrl && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <a
+                    href={order.shippingDetails.labelUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-500 hover:text-primary-600 text-sm flex items-center gap-2"
+                  >
+                    <Printer size={16} />
+                    View Saved Label
+                  </a>
+                </div>
+              )}
+
+              {/* Status History */}
+              {order.shippingDetails.statusHistory && order.shippingDetails.statusHistory.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Tracking History</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {order.shippingDetails.statusHistory.slice().reverse().map((history: any, index: number) => (
+                      <div key={index} className="flex gap-3 text-sm border-l-2 border-primary-300 pl-3 py-1">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {history.status?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                          </p>
+                          {history.message && (
+                            <p className="text-gray-600 text-xs mt-0.5">{history.message}</p>
+                          )}
+                          {history.location && (
+                            <p className="text-gray-500 text-xs mt-0.5">{history.location}</p>
+                          )}
+                          <p className="text-gray-400 text-xs mt-1">{formatDate(history.timestamp)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (order.isPaid || order.paymentStatus === 'Paid') ? (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Truck className="text-primary-500" size={20} />
+                  <h3 className="text-lg font-semibold text-gray-900">Shipment Tracking</h3>
+                </div>
+                <button
+                  onClick={handleCreateShipment}
+                  disabled={isCreatingShipment}
+                  className="btn-primary flex items-center gap-2 text-sm"
+                  title="Create shipment manually"
+                >
+                  <Package size={16} />
+                  {isCreatingShipment ? 'Creating...' : 'Create Shipment'}
+                </button>
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-800 mb-2">
+                  ⚠️ Shipment not created yet. Click "Create Shipment" to manually create the shipment with iThink Logistics.
+                </p>
+                <p className="text-xs text-yellow-700">
+                  This will generate an AWB number and create a shipment for this order.
+                </p>
+              </div>
+            </div>
+          ) : null}
 
           {/* Shipping Address */}
           {order.shippingAddress && (

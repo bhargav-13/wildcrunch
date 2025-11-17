@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Package, 
-  Truck, 
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  Package,
+  Truck,
   MapPin,
   Mail,
   Phone,
   Calendar,
   FileText,
-  Copy
+  Copy,
+  RefreshCw,
+  TruckIcon,
+  Navigation
 } from 'lucide-react';
 import Header from '../Header';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +28,8 @@ const OrderDetailPage = () => {
   const { isAuthenticated } = useAuth();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [trackingData, setTrackingData] = useState<any>(null);
+  const [loadingTracking, setLoadingTracking] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -38,7 +43,19 @@ const OrderDetailPage = () => {
         setLoading(true);
         const response = await ordersAPI.getById(id!);
         if (response.data.success) {
-          setOrder(response.data.data);
+          const orderData = response.data.data;
+          console.log('📋 Order loaded:', {
+            orderNumber: orderData.orderNumber,
+            hasShippingDetails: !!orderData.shippingDetails,
+            awbNumber: orderData.shippingDetails?.awbNumber,
+            orderStatus: orderData.orderStatus,
+            paymentStatus: orderData.paymentStatus,
+            paymentMethod: orderData.paymentMethod,
+            paymentDetails: orderData.paymentDetails,
+            paidAt: orderData.paidAt
+          });
+          console.log('📋 Full order object:', orderData);
+          setOrder(orderData);
         } else {
           toast.error('Order not found');
           navigate('/profile');
@@ -54,6 +71,50 @@ const OrderDetailPage = () => {
 
     fetchOrder();
   }, [id, isAuthenticated, navigate]);
+
+  const fetchTracking = async () => {
+    if (!order?._id) return;
+
+    try {
+      setLoadingTracking(true);
+      const response = await ordersAPI.getTracking(order._id);
+      console.log('📦 Tracking response:', response.data);
+
+      if (response.data.success) {
+        const { order: updatedOrder, shipping, liveTracking } = response.data.data;
+        console.log('📦 Live tracking data:', liveTracking);
+        console.log('📦 Shipping details:', shipping);
+
+        // Update order with fresh shipping details
+        setOrder({ ...order, shippingDetails: shipping });
+        setTrackingData(liveTracking);
+
+        if (liveTracking) {
+          toast.success('Tracking updated');
+        } else {
+          toast.info(response.data.data.message || 'No live tracking available yet');
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching tracking:', error);
+      toast.error(error.response?.data?.message || 'Failed to fetch tracking');
+    } finally {
+      setLoadingTracking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (order?._id && order.shippingDetails?.awbNumber) {
+      console.log('📦 Order has AWB, fetching tracking...', order.shippingDetails.awbNumber);
+      fetchTracking();
+    } else if (order?._id) {
+      console.log('⚠️ Order loaded but no AWB number yet:', {
+        orderId: order._id,
+        hasShippingDetails: !!order.shippingDetails,
+        awbNumber: order.shippingDetails?.awbNumber
+      });
+    }
+  }, [order?._id, order?.shippingDetails?.awbNumber]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -241,34 +302,81 @@ const OrderDetailPage = () => {
                 <h2 className="text-2xl font-bold font-suez">Payment Information</h2>
               </div>
               <div className="space-y-3">
+                {/* Payment Mode */}
                 <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
-                  <span className="font-jost text-gray-600">Payment Method:</span>
-                  <span className="font-suez font-semibold capitalize">{order.paymentMethod}</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
-                  <span className="font-jost text-gray-600">Payment Status:</span>
-                  <span className={getStatusBadge(order.paymentStatus)}>
-                    {order.paymentStatus}
+                  <span className="font-jost text-gray-600">Payment Mode:</span>
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    order.paymentMethod === 'COD'
+                      ? 'bg-orange-100 text-orange-800'
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Prepaid'}
                   </span>
                 </div>
+
+                {/* Payment Method */}
+                <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
+                  <span className="font-jost text-gray-600">Payment Method:</span>
+                  <span className="font-suez font-semibold capitalize">
+                    {order.paymentMethod === 'razorpay' ? 'Razorpay' : order.paymentMethod || 'Not specified'}
+                  </span>
+                </div>
+
+                {/* Payment Status */}
+                <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
+                  <span className="font-jost text-gray-600">Payment Status:</span>
+                  <span className={getStatusBadge(order.paymentStatus || 'Pending')}>
+                    {order.paymentStatus || 'Pending'}
+                  </span>
+                </div>
+
+                {/* Amount Paid */}
+                {order.totalPrice && order.paymentStatus === 'Paid' && (
+                  <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
+                    <span className="font-jost text-gray-600">Amount Paid:</span>
+                    <span className="font-suez font-semibold text-green-700">₹{order.totalPrice}.00</span>
+                  </div>
+                )}
+
+                {/* Paid At */}
                 {order.paidAt && (
-                  <div className="flex justify-between items-center py-2">
+                  <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
                     <span className="font-jost text-gray-600">Paid At:</span>
                     <span className="font-suez text-sm">{formatDate(order.paidAt)}</span>
                   </div>
                 )}
+
+                {/* Transaction ID */}
                 {order.paymentDetails?.razorpayPaymentId && (
-                  <div className="flex justify-between items-center py-2 pt-3 border-t border-dashed border-gray-300">
-                    <span className="font-jost text-gray-600">Transaction ID:</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-suez text-sm">{order.paymentDetails.razorpayPaymentId}</span>
+                  <div className="pt-3 border-t border-dashed border-gray-300">
+                    <div className="flex justify-between items-start gap-2 mb-1">
+                      <span className="font-jost text-gray-600 text-sm">Transaction ID:</span>
                       <button
                         onClick={() => copyToClipboard(order.paymentDetails.razorpayPaymentId, 'Transaction ID')}
                         className="p-1 hover:bg-gray-200 rounded transition-colors"
+                        title="Copy Transaction ID"
                       >
                         <Copy className="w-4 h-4 text-gray-600" />
                       </button>
                     </div>
+                    <span className="font-suez text-xs text-gray-700 break-all">{order.paymentDetails.razorpayPaymentId}</span>
+                  </div>
+                )}
+
+                {/* Razorpay Order ID */}
+                {order.paymentDetails?.razorpayOrderId && (
+                  <div className="pt-2">
+                    <div className="flex justify-between items-start gap-2 mb-1">
+                      <span className="font-jost text-gray-600 text-sm">Razorpay Order ID:</span>
+                      <button
+                        onClick={() => copyToClipboard(order.paymentDetails.razorpayOrderId, 'Razorpay Order ID')}
+                        className="p-1 hover:bg-gray-200 rounded transition-colors"
+                        title="Copy Razorpay Order ID"
+                      >
+                        <Copy className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </div>
+                    <span className="font-suez text-xs text-gray-700 break-all">{order.paymentDetails.razorpayOrderId}</span>
                   </div>
                 )}
               </div>
@@ -315,6 +423,232 @@ const OrderDetailPage = () => {
                 </span>
               </div>
             </div>
+
+            {/* Shipment Tracking */}
+            {order.shippingDetails?.awbNumber ? (
+              <div className="bg-white rounded-lg border border-black p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <TruckIcon className="w-6 h-6 text-[#F1B213]" />
+                    <h2 className="text-2xl font-bold font-suez">Shipment Tracking</h2>
+                  </div>
+                  <button
+                    onClick={fetchTracking}
+                    disabled={loadingTracking}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+                    title="Refresh tracking"
+                  >
+                    <RefreshCw className={`w-5 h-5 text-[#F1B213] ${loadingTracking ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {/* AWB Number */}
+                  <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
+                    <span className="font-jost text-gray-600">AWB Number:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-suez font-semibold">{order.shippingDetails.awbNumber}</span>
+                      <button
+                        onClick={() => copyToClipboard(order.shippingDetails.awbNumber, 'AWB Number')}
+                        className="p-1 hover:bg-gray-200 rounded transition-colors"
+                      >
+                        <Copy className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Courier Name */}
+                  {order.shippingDetails.courierName && (
+                    <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
+                      <span className="font-jost text-gray-600">Courier Partner:</span>
+                      <span className="font-suez font-semibold">{order.shippingDetails.courierName}</span>
+                    </div>
+                  )}
+
+                  {/* Shipping Status */}
+                  <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
+                    <span className="font-jost text-gray-600">Shipping Status:</span>
+                    <span className={getStatusBadge(order.shippingDetails.shippingStatus || 'pending')}>
+                      {(order.shippingDetails.shippingStatus || 'pending').replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                    </span>
+                  </div>
+
+                  {/* Expected Delivery - Prominent Display */}
+                  {(order.shippingDetails.estimatedDelivery || trackingData?.order_details?.expected_delivery_date) && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 my-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Calendar className="w-4 h-4 text-green-600" />
+                        <span className="font-jost text-green-700 text-sm font-semibold">Expected Delivery</span>
+                      </div>
+                      <p className="font-suez text-lg font-bold text-green-800 ml-6">
+                        {trackingData?.order_details?.expected_delivery_date || order.shippingDetails.estimatedDelivery}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Last Updated */}
+                  {order.shippingDetails.lastTrackedAt && (
+                    <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
+                      <span className="font-jost text-gray-600">Last Updated:</span>
+                      <span className="font-suez text-sm">{formatDate(order.shippingDetails.lastTrackedAt)}</span>
+                    </div>
+                  )}
+
+                  {/* Shipment Created Date */}
+                  {order.shippingDetails.createdAt && (
+                    <div className="flex justify-between items-center py-2">
+                      <span className="font-jost text-gray-600">Shipment Created:</span>
+                      <span className="font-suez text-sm">{formatDate(order.shippingDetails.createdAt)}</span>
+                    </div>
+                  )}
+
+                  {/* Live Tracking Data */}
+                  {trackingData && (
+                    <div className="mt-4 pt-4 border-t border-gray-300">
+                      <h3 className="font-suez font-semibold mb-3 flex items-center gap-2">
+                        <Navigation className="w-4 h-4 text-[#F1B213]" />
+                        Live Tracking Details
+                      </h3>
+
+                      {/* Current Status */}
+                      {trackingData.current_status && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                          <p className="text-xs font-jost text-blue-600 mb-1">Current Status</p>
+                          <p className="text-sm font-suez font-semibold text-blue-900">{trackingData.current_status}</p>
+                        </div>
+                      )}
+
+                      {/* Last Scan Details */}
+                      {trackingData.last_scan_details && (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
+                          <p className="text-xs font-jost text-gray-600 mb-2">Last Scan</p>
+                          <div className="space-y-1 text-sm">
+                            {trackingData.last_scan_details.location && (
+                              <div className="flex items-start gap-2">
+                                <MapPin className="w-3 h-3 text-gray-500 mt-0.5 flex-shrink-0" />
+                                <span className="font-jost text-gray-700">{trackingData.last_scan_details.location}</span>
+                              </div>
+                            )}
+                            {trackingData.last_scan_details.scan_datetime && (
+                              <div className="flex items-start gap-2">
+                                <Clock className="w-3 h-3 text-gray-500 mt-0.5 flex-shrink-0" />
+                                <span className="font-jost text-gray-700">{trackingData.last_scan_details.scan_datetime}</span>
+                              </div>
+                            )}
+                            {trackingData.last_scan_details.instructions && (
+                              <p className="font-jost text-gray-600 text-xs italic mt-1">{trackingData.last_scan_details.instructions}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Order Details from Tracking */}
+                      <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                        {trackingData.logistic && (
+                          <div>
+                            <p className="font-jost text-gray-500">Courier</p>
+                            <p className="font-suez font-semibold capitalize">{trackingData.logistic}</p>
+                          </div>
+                        )}
+                        {trackingData.order_type && (
+                          <div>
+                            <p className="font-jost text-gray-500">Order Type</p>
+                            <p className="font-suez font-semibold capitalize">{trackingData.order_type}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Scan History Summary */}
+                      {trackingData.scan_details && trackingData.scan_details.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <p className="text-xs font-jost text-gray-500 mb-2">Recent Scans ({trackingData.scan_details.length} total)</p>
+                          <div className="space-y-1 max-h-32 overflow-y-auto">
+                            {trackingData.scan_details.slice(0, 3).map((scan: any, index: number) => (
+                              <div key={index} className="text-xs bg-white border border-gray-100 rounded p-2">
+                                <p className="font-suez font-semibold text-gray-900">{scan.status || scan.scan_type}</p>
+                                {scan.location && (
+                                  <p className="font-jost text-gray-600">{scan.location}</p>
+                                )}
+                                {scan.scan_datetime && (
+                                  <p className="font-jost text-gray-400 mt-0.5">{scan.scan_datetime}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Expected Delivery */}
+                      {(trackingData.order_details?.expected_delivery_date || order.shippingDetails.estimatedDelivery) && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="flex items-start gap-2">
+                            <Calendar className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs font-jost text-gray-600">Expected Delivery</p>
+                              <p className="text-sm font-suez font-semibold text-green-700">
+                                {trackingData.order_details?.expected_delivery_date || order.shippingDetails.estimatedDelivery}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Message fallback */}
+                      {trackingData.message && !trackingData.current_status && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                          <p className="text-sm text-yellow-800 font-jost">{trackingData.message}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Status History */}
+                  {order.shippingDetails.statusHistory && order.shippingDetails.statusHistory.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-300">
+                      <h3 className="font-suez font-semibold mb-3">Tracking History</h3>
+                      <div className="space-y-2">
+                        {order.shippingDetails.statusHistory.slice(-5).reverse().map((history: any, index: number) => (
+                          <div key={index} className="flex gap-3 text-sm">
+                            <div className="flex flex-col items-center">
+                              <div className="w-2 h-2 rounded-full bg-[#F1B213] mt-1.5"></div>
+                              {index !== order.shippingDetails.statusHistory.slice(-5).length - 1 && (
+                                <div className="w-0.5 h-full bg-gray-300 my-1"></div>
+                              )}
+                            </div>
+                            <div className="flex-1 pb-3">
+                              <p className="font-suez font-semibold text-gray-900">
+                                {history.status?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                              </p>
+                              {history.message && (
+                                <p className="font-jost text-gray-600 text-xs mt-0.5">{history.message}</p>
+                              )}
+                              {history.location && (
+                                <p className="font-jost text-gray-500 text-xs mt-0.5">{history.location}</p>
+                              )}
+                              <p className="font-jost text-gray-400 text-xs mt-1">
+                                {formatDate(history.timestamp)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : order.orderStatus === 'Confirmed' || order.orderStatus === 'Processing' ? (
+              <div className="bg-white rounded-lg border border-black p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <TruckIcon className="w-6 h-6 text-[#F1B213]" />
+                  <h2 className="text-2xl font-bold font-suez">Shipment Tracking</h2>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800 font-jost">
+                    📦 Your shipment is being prepared. Tracking information will be available once the package is dispatched.
+                  </p>
+                </div>
+              </div>
+            ) : null}
 
             {/* Shipping Details */}
             <div className="bg-white rounded-lg border border-black p-6">
