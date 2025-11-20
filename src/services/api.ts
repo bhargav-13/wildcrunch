@@ -176,9 +176,13 @@ export const ordersAPI = {
   calculateShipping: (pincode: string, cartTotal: number) =>
     api.post('/orders/calculate-shipping', { pincode, cartTotal }),
 
-  // Create unpaid order from cart (Step 1)
+  // Create unpaid order from cart (Step 1) - OLD AUTH VERSION (deprecated)
   createFromCart: (shippingPrice?: number) =>
     api.post('/orders/create-from-cart', { shippingPrice }),
+
+  // Create guest order (NO AUTH REQUIRED)
+  createGuestOrder: (data: { items: any[]; couponCode?: string; couponDiscount?: number }) =>
+    api.post('/orders/guest/create', data),
 
   // Update order with shipping address (Step 2)
   updateAddress: (orderId: string, shippingAddress: any) =>

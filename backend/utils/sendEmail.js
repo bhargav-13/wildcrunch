@@ -274,6 +274,254 @@ Please process this order and update the order status.
   }
 };
 
+// Send order confirmation email to customer (for guest checkout)
+export const sendCustomerOrderConfirmation = async (order) => {
+  try {
+    // Validate email configuration
+    if (!process.env.SMTP_EMAIL) {
+      console.log('⚠️ Email not configured. Skipping customer email notification.');
+      return { success: false, message: 'Email not configured' };
+    }
+
+    // Get customer email from order
+    const customerEmail = order.isGuest ? order.guestEmail : order.shippingAddress?.email;
+    const customerName = order.isGuest ? order.guestName : order.shippingAddress?.fullName;
+
+    if (!customerEmail) {
+      console.log('⚠️ Customer email not found. Skipping customer email notification.');
+      return { success: false, message: 'Customer email not found' };
+    }
+
+    const transporter = createTransporter();
+
+    // Get order items summary
+    const itemsSummary = order.items.map(item => {
+      const packLabel = item.pack === '2' ? ' (Pack of 2)' : item.pack === '4' ? ' (Pack of 4)' : '';
+      const itemTotal = (item.packPrice || item.priceNumeric) * item.quantity;
+      return `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">
+            ${item.name}${packLabel}<br>
+            <small style="color: #666;">Quantity: ${item.quantity} × ₹${item.packPrice || item.priceNumeric}</small>
+          </td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₹${itemTotal}</td>
+        </tr>`;
+    }).join('');
+
+    // Create tracking URL
+    const trackingUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/track-order?orderId=${order._id}&email=${encodeURIComponent(customerEmail)}`;
+
+    // Format address
+    const address = order.shippingAddress ? `
+      ${order.shippingAddress.fullName}<br>
+      ${order.shippingAddress.address}<br>
+      ${order.shippingAddress.area ? order.shippingAddress.area + '<br>' : ''}
+      ${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.pincode}<br>
+      Phone: ${order.shippingAddress.phone}
+    ` : 'Not provided';
+
+    // Email options
+    const mailOptions = {
+      from: `"Wild Crunch" <${process.env.SMTP_EMAIL}>`,
+      to: customerEmail,
+      subject: `Order Confirmation - ${order.orderNumber}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+              background-color: #f8f8f8;
+            }
+            .container {
+              background-color: #ffffff;
+              border-radius: 10px;
+              padding: 30px;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .header {
+              background: linear-gradient(135deg, #F1B213 0%, #E5A612 100%);
+              color: white;
+              padding: 20px;
+              border-radius: 10px 10px 0 0;
+              margin: -30px -30px 30px -30px;
+              text-align: center;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 24px;
+            }
+            .order-number {
+              background-color: rgba(255, 255, 255, 0.2);
+              color: white;
+              padding: 8px 15px;
+              border-radius: 5px;
+              font-weight: bold;
+              display: inline-block;
+              margin: 10px 0;
+            }
+            .info-box {
+              background-color: #f9f9f9;
+              border-left: 4px solid #F1B213;
+              padding: 15px;
+              margin: 20px 0;
+              border-radius: 5px;
+            }
+            .info-box h3 {
+              margin-top: 0;
+              color: #F1B213;
+            }
+            .tracking-button {
+              background-color: #F1B213;
+              color: #000;
+              padding: 12px 30px;
+              border-radius: 5px;
+              text-decoration: none;
+              display: inline-block;
+              font-weight: bold;
+              margin: 20px 0;
+            }
+            .tracking-button:hover {
+              background-color: #E5A612;
+            }
+            table.items-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 15px 0;
+            }
+            .total-row {
+              background-color: #F1B213;
+              font-weight: bold;
+              font-size: 18px;
+            }
+            .total-row td {
+              padding: 12px 10px !important;
+              border: none !important;
+            }
+            .footer {
+              text-align: center;
+              color: #666;
+              font-size: 12px;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #ddd;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>✅ Order Confirmed!</h1>
+              <div class="order-number">Order ${order.orderNumber}</div>
+            </div>
+
+            <p>Hi ${customerName || 'Customer'},</p>
+            <p>Thank you for your order! We've received your payment and your order is being processed.</p>
+
+            <div style="text-align: center;">
+              <a href="${trackingUrl}" class="tracking-button">📦 Track Your Order</a>
+            </div>
+
+            <div class="info-box">
+              <h3>📋 Order Summary</h3>
+              <table class="items-table">
+                ${itemsSummary}
+                <tr>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>Subtotal</strong></td>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₹${order.itemsPrice}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>Shipping</strong></td>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₹${order.shippingPrice}</td>
+                </tr>
+                <tr class="total-row">
+                  <td><strong>Total</strong></td>
+                  <td style="text-align: right;"><strong>₹${order.totalPrice}</strong></td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="info-box">
+              <h3>📍 Delivery Address</h3>
+              <p>${address}</p>
+            </div>
+
+            <div class="info-box">
+              <h3>💳 Payment Details</h3>
+              <p><strong>Status:</strong> ${order.paymentStatus}</p>
+              <p><strong>Method:</strong> ${order.paymentMethod}</p>
+              ${order.paymentDetails?.razorpayPaymentId ? `<p><strong>Transaction ID:</strong> ${order.paymentDetails.razorpayPaymentId}</p>` : ''}
+            </div>
+
+            <div class="info-box" style="background-color: #e8f5e9; border-left-color: #4caf50;">
+              <h3 style="color: #4caf50;">📧 Track Your Order</h3>
+              <p>You can track your order anytime using this link:</p>
+              <p><a href="${trackingUrl}" style="color: #4caf50; word-break: break-all;">${trackingUrl}</a></p>
+              <p style="margin-top: 10px; font-size: 14px; color: #666;">
+                <strong>Bookmark this link</strong> to easily check your order status and delivery updates.
+              </p>
+            </div>
+
+            <div class="footer">
+              <p>Thank you for shopping with Wild Crunch!</p>
+              <p>If you have any questions, please reply to this email.</p>
+              <p style="margin-top: 15px;">
+                <small>This is an automated email. Please do not reply to this message.</small>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `
+✅ ORDER CONFIRMED - ${order.orderNumber}
+
+Hi ${customerName || 'Customer'},
+
+Thank you for your order! We've received your payment and your order is being processed.
+
+Order Details:
+- Order Number: ${order.orderNumber}
+- Total: ₹${order.totalPrice}
+- Payment Status: ${order.paymentStatus}
+
+Delivery Address:
+${order.shippingAddress ? `
+${order.shippingAddress.fullName}
+${order.shippingAddress.address}
+${order.shippingAddress.area || ''}
+${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.pincode}
+Phone: ${order.shippingAddress.phone}
+` : 'Not provided'}
+
+Track Your Order:
+${trackingUrl}
+
+Bookmark this link to easily check your order status and delivery updates.
+
+Thank you for shopping with Wild Crunch!
+If you have any questions, please reply to this email.
+      `
+    };
+
+    // Send email
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Customer confirmation email sent:', info.messageId, 'to', customerEmail);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('❌ Error sending customer confirmation email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 export default {
-  sendOrderNotification
+  sendOrderNotification,
+  sendCustomerOrderConfirmation
 };

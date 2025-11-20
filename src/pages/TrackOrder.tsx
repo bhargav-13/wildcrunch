@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   CheckCircle,
   XCircle,
@@ -14,55 +14,74 @@ import {
   Copy,
   RefreshCw,
   TruckIcon,
-  Navigation
+  Navigation,
+  Search
 } from 'lucide-react';
-import Header from '../Header';
+import Header from '@/components/Header';
 import { ordersAPI } from '@/services/api';
 import { toast } from 'sonner';
 import localProducts from '@/data/product';
 
-const OrderDetailPage = () => {
-  const { id } = useParams();
+const TrackOrder = () => {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [trackingData, setTrackingData] = useState<any>(null);
   const [loadingTracking, setLoadingTracking] = useState(false);
+  const [searchOrderId, setSearchOrderId] = useState('');
+  const [searchEmail, setSearchEmail] = useState('');
+
+  const orderId = searchParams.get('orderId');
+  const email = searchParams.get('email');
 
   useEffect(() => {
+    if (!orderId || !email) {
+      setLoading(false);
+      return;
+    }
+
     const fetchOrder = async () => {
       try {
         setLoading(true);
-        const response = await ordersAPI.getById(id!);
+        const response = await ordersAPI.getById(orderId);
         if (response.data.success) {
           const orderData = response.data.data;
-          console.log('📋 Order loaded:', {
+
+          // Verify email matches (for guest orders)
+          const orderEmail = orderData.isGuest
+            ? (orderData.guestEmail || orderData.shippingAddress?.email)
+            : orderData.user?.email;
+
+          if (orderEmail?.toLowerCase() !== email.toLowerCase()) {
+            toast.error('Invalid order ID or email');
+            setLoading(false);
+            return;
+          }
+
+          console.log('📋 Order loaded for tracking:', {
             orderNumber: orderData.orderNumber,
+            isGuest: orderData.isGuest,
             hasShippingDetails: !!orderData.shippingDetails,
             awbNumber: orderData.shippingDetails?.awbNumber,
             orderStatus: orderData.orderStatus,
-            paymentStatus: orderData.paymentStatus,
-            paymentMethod: orderData.paymentMethod,
-            paymentDetails: orderData.paymentDetails,
-            paidAt: orderData.paidAt
+            paymentStatus: orderData.paymentStatus
           });
-          console.log('📋 Full order object:', orderData);
+
           setOrder(orderData);
         } else {
           toast.error('Order not found');
-          navigate('/');
         }
       } catch (error: any) {
         console.error('Error fetching order:', error);
         toast.error(error.response?.data?.message || 'Failed to fetch order');
-        navigate('/');
       } finally {
         setLoading(false);
       }
     };
 
     fetchOrder();
-  }, [id, navigate]);
+  }, [orderId, email]);
 
   const fetchTracking = async () => {
     if (!order?._id) return;
@@ -99,12 +118,6 @@ const OrderDetailPage = () => {
     if (order?._id && order.shippingDetails?.awbNumber) {
       console.log('📦 Order has AWB, fetching tracking...', order.shippingDetails.awbNumber);
       fetchTracking();
-    } else if (order?._id) {
-      console.log('⚠️ Order loaded but no AWB number yet:', {
-        orderId: order._id,
-        hasShippingDetails: !!order.shippingDetails,
-        awbNumber: order.shippingDetails?.awbNumber
-      });
     }
   }, [order?._id, order?.shippingDetails?.awbNumber]);
 
@@ -158,6 +171,15 @@ const OrderDetailPage = () => {
     }
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchOrderId || !searchEmail) {
+      toast.error('Please enter both Order ID and Email');
+      return;
+    }
+    navigate(`/track-order?orderId=${searchOrderId}&email=${encodeURIComponent(searchEmail)}`);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8F7E5]">
@@ -170,8 +192,65 @@ const OrderDetailPage = () => {
     );
   }
 
-  if (!order) {
-    return null;
+  // Show search form if no order found or no params
+  if (!orderId || !email || !order) {
+    return (
+      <div className="min-h-screen bg-[#F8F7E5] font-jost">
+        <Header />
+
+        <div className="container mx-auto px-4 py-8 mt-24 max-w-2xl">
+          <div className="bg-white rounded-lg border border-black p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <Search className="w-8 h-8 text-[#F1B213]" />
+              <h1 className="text-3xl font-bold text-black font-suez">Track Your Order</h1>
+            </div>
+
+            <p className="text-gray-600 mb-6 font-jost">
+              Enter your Order ID and email address to track your shipment
+            </p>
+
+            <form onSubmit={handleSearch} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2 font-suez">Order ID</label>
+                <input
+                  type="text"
+                  value={searchOrderId}
+                  onChange={(e) => setSearchOrderId(e.target.value)}
+                  placeholder="e.g., 691b0b08fdafb8577f111746"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg font-jost focus:outline-none focus:ring-2 focus:ring-[#F1B213]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2 font-suez">Email Address</label>
+                <input
+                  type="email"
+                  value={searchEmail}
+                  onChange={(e) => setSearchEmail(e.target.value)}
+                  placeholder="e.g., your@email.com"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg font-jost focus:outline-none focus:ring-2 focus:ring-[#F1B213]"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-[#F1B213] text-white py-3 rounded-lg font-suez text-lg hover:bg-[#E5A612] transition-colors"
+              >
+                Track Order
+              </button>
+            </form>
+
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <p className="text-sm text-gray-600 font-jost">
+                You can find your Order ID in the confirmation email we sent you after your purchase.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const orderItems = order.items || [];
@@ -188,13 +267,13 @@ const OrderDetailPage = () => {
   return (
     <div className="min-h-screen bg-[#F8F7E5] font-jost">
       <Header />
-      
+
       <div className="container mx-auto px-4 py-8 mt-24 max-w-6xl">
         {/* Header with Order Number */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-black font-suez mb-2">Order Details</h1>
+              <h1 className="text-3xl font-bold text-black font-suez mb-2">Track Your Order</h1>
               <div className="flex items-center gap-3">
                 <span className="text-gray-600 font-jost">Order Number:</span>
                 <span className="text-lg font-bold font-suez text-[#F1B213]">{order.orderNumber}</span>
@@ -214,7 +293,7 @@ const OrderDetailPage = () => {
               </span>
             </div>
           </div>
-          
+
           {/* Order Date */}
           <div className="flex items-center gap-2 text-gray-600">
             <Calendar className="w-4 h-4" />
@@ -232,18 +311,18 @@ const OrderDetailPage = () => {
                 {orderItems.map((item: any, index: number) => {
                   const localProduct = localProducts.find(p => p.id === item.productId);
                   const imageSrc = localProduct?.imageSrc || item.imageSrc;
-                  
+
                   return (
                     <div key={index} className="flex gap-4 pb-4 border-b border-dashed border-gray-300 last:border-0">
                       {/* Product Image */}
                       <div className="w-24 h-24 border border-black rounded flex items-center justify-center bg-white flex-shrink-0">
-                        <img 
-                          src={imageSrc} 
+                        <img
+                          src={imageSrc}
                           alt={item.name}
                           className="max-w-full max-h-full object-contain"
                         />
                       </div>
-                      
+
                       {/* Product Details */}
                       <div className="flex-1">
                         <h3 className="text-lg font-bold font-suez mb-1">{item.name}</h3>
@@ -294,26 +373,6 @@ const OrderDetailPage = () => {
                 <h2 className="text-2xl font-bold font-suez">Payment Information</h2>
               </div>
               <div className="space-y-3">
-                {/* Payment Mode */}
-                <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
-                  <span className="font-jost text-gray-600">Payment Mode:</span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    order.paymentMethod === 'COD'
-                      ? 'bg-orange-100 text-orange-800'
-                      : 'bg-green-100 text-green-800'
-                  }`}>
-                    {order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Prepaid'}
-                  </span>
-                </div>
-
-                {/* Payment Method */}
-                <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
-                  <span className="font-jost text-gray-600">Payment Method:</span>
-                  <span className="font-suez font-semibold capitalize">
-                    {order.paymentMethod === 'razorpay' ? 'Razorpay' : order.paymentMethod || 'Not specified'}
-                  </span>
-                </div>
-
                 {/* Payment Status */}
                 <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
                   <span className="font-jost text-gray-600">Payment Status:</span>
@@ -332,43 +391,9 @@ const OrderDetailPage = () => {
 
                 {/* Paid At */}
                 {order.paidAt && (
-                  <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-300">
+                  <div className="flex justify-between items-center py-2">
                     <span className="font-jost text-gray-600">Paid At:</span>
                     <span className="font-suez text-sm">{formatDate(order.paidAt)}</span>
-                  </div>
-                )}
-
-                {/* Transaction ID */}
-                {order.paymentDetails?.razorpayPaymentId && (
-                  <div className="pt-3 border-t border-dashed border-gray-300">
-                    <div className="flex justify-between items-start gap-2 mb-1">
-                      <span className="font-jost text-gray-600 text-sm">Transaction ID:</span>
-                      <button
-                        onClick={() => copyToClipboard(order.paymentDetails.razorpayPaymentId, 'Transaction ID')}
-                        className="p-1 hover:bg-gray-200 rounded transition-colors"
-                        title="Copy Transaction ID"
-                      >
-                        <Copy className="w-4 h-4 text-gray-600" />
-                      </button>
-                    </div>
-                    <span className="font-suez text-xs text-gray-700 break-all">{order.paymentDetails.razorpayPaymentId}</span>
-                  </div>
-                )}
-
-                {/* Razorpay Order ID */}
-                {order.paymentDetails?.razorpayOrderId && (
-                  <div className="pt-2">
-                    <div className="flex justify-between items-start gap-2 mb-1">
-                      <span className="font-jost text-gray-600 text-sm">Razorpay Order ID:</span>
-                      <button
-                        onClick={() => copyToClipboard(order.paymentDetails.razorpayOrderId, 'Razorpay Order ID')}
-                        className="p-1 hover:bg-gray-200 rounded transition-colors"
-                        title="Copy Razorpay Order ID"
-                      >
-                        <Copy className="w-4 h-4 text-gray-600" />
-                      </button>
-                    </div>
-                    <span className="font-suez text-xs text-gray-700 break-all">{order.paymentDetails.razorpayOrderId}</span>
                   </div>
                 )}
               </div>
@@ -385,7 +410,7 @@ const OrderDetailPage = () => {
               </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  {order.orderStatus === 'Confirmed' ? (
+                  {order.orderStatus === 'Confirmed' || order.orderStatus === 'Shipped' || order.orderStatus === 'Delivered' ? (
                     <CheckCircle className="w-5 h-5 text-green-600" />
                   ) : (
                     <Clock className="w-5 h-5 text-gray-400" />
@@ -393,7 +418,7 @@ const OrderDetailPage = () => {
                   <span className="font-jost">Confirmed</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  {order.orderStatus === 'Shipped' ? (
+                  {order.orderStatus === 'Shipped' || order.orderStatus === 'Delivered' ? (
                     <Truck className="w-5 h-5 text-green-600" />
                   ) : (
                     <Clock className="w-5 h-5 text-gray-400" />
@@ -486,14 +511,6 @@ const OrderDetailPage = () => {
                     </div>
                   )}
 
-                  {/* Shipment Created Date */}
-                  {order.shippingDetails.createdAt && (
-                    <div className="flex justify-between items-center py-2">
-                      <span className="font-jost text-gray-600">Shipment Created:</span>
-                      <span className="font-suez text-sm">{formatDate(order.shippingDetails.createdAt)}</span>
-                    </div>
-                  )}
-
                   {/* Live Tracking Data */}
                   {trackingData && (
                     <div className="mt-4 pt-4 border-t border-gray-300">
@@ -534,22 +551,6 @@ const OrderDetailPage = () => {
                         </div>
                       )}
 
-                      {/* Order Details from Tracking */}
-                      <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
-                        {trackingData.logistic && (
-                          <div>
-                            <p className="font-jost text-gray-500">Courier</p>
-                            <p className="font-suez font-semibold capitalize">{trackingData.logistic}</p>
-                          </div>
-                        )}
-                        {trackingData.order_type && (
-                          <div>
-                            <p className="font-jost text-gray-500">Order Type</p>
-                            <p className="font-suez font-semibold capitalize">{trackingData.order_type}</p>
-                          </div>
-                        )}
-                      </div>
-
                       {/* Scan History Summary */}
                       {trackingData.scan_details && trackingData.scan_details.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-gray-200">
@@ -567,28 +568,6 @@ const OrderDetailPage = () => {
                               </div>
                             ))}
                           </div>
-                        </div>
-                      )}
-
-                      {/* Expected Delivery */}
-                      {(trackingData.order_details?.expected_delivery_date || order.shippingDetails.estimatedDelivery) && (
-                        <div className="mt-3 pt-3 border-t border-gray-200">
-                          <div className="flex items-start gap-2">
-                            <Calendar className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs font-jost text-gray-600">Expected Delivery</p>
-                              <p className="text-sm font-suez font-semibold text-green-700">
-                                {trackingData.order_details?.expected_delivery_date || order.shippingDetails.estimatedDelivery}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Message fallback */}
-                      {trackingData.message && !trackingData.current_status && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                          <p className="text-sm text-yellow-800 font-jost">{trackingData.message}</p>
                         </div>
                       )}
                     </div>
@@ -683,12 +662,6 @@ const OrderDetailPage = () => {
             {/* Actions */}
             <div className="space-y-3">
               <Link
-                to="/profile"
-                className="block w-full bg-black text-white text-center py-3 rounded-lg font-suez hover:bg-gray-800 transition-colors"
-              >
-                View All Orders
-              </Link>
-              <Link
                 to="/products"
                 className="block w-full bg-[#F1B213] text-white text-center py-3 rounded-lg font-suez hover:bg-[#E5A612] transition-colors"
               >
@@ -702,4 +675,4 @@ const OrderDetailPage = () => {
   );
 };
 
-export default OrderDetailPage;
+export default TrackOrder;

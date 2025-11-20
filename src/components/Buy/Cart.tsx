@@ -3,13 +3,11 @@ import { ChevronLeft, Minus, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../Header';
 import { useCart } from '@/contexts/CartContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ordersAPI } from '@/services/api';
 
 const CartPage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   const { cart, loading, updateQuantity, removeFromCart, refreshCart } = useCart();
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -19,18 +17,9 @@ const CartPage = () => {
   const [showCoupons, setShowCoupons] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      toast.error('Please login to view your cart');
-      navigate('/login');
-    }
-  }, [isAuthenticated, navigate]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      refreshCart();
-      fetchAvailableCoupons();
-    }
-  }, [isAuthenticated]);
+    refreshCart();
+    fetchAvailableCoupons();
+  }, []);
 
   // Fetch available coupons
   const fetchAvailableCoupons = async () => {
@@ -104,7 +93,7 @@ const CartPage = () => {
     try {
       setCreatingOrder(true);
 
-      console.log('🛒 Creating order from cart...');
+      console.log('🛒 Creating guest order from cart...');
 
       // If coupon is applied, mark it as used
       if (appliedCoupon) {
@@ -116,14 +105,18 @@ const CartPage = () => {
         }
       }
 
-      // Create unpaid order from cart (Step 1)
-      const response = await ordersAPI.createFromCart();
+      // Create guest order with cart items from localStorage
+      const response = await ordersAPI.createGuestOrder({
+        items: cart?.items || [],
+        couponCode: appliedCoupon?.code,
+        couponDiscount: appliedCoupon?.discount
+      });
 
-      console.log('✅ Order creation response:', response.data);
+      console.log('✅ Guest order creation response:', response.data);
 
       if (response.data.success) {
         const order = response.data.data.order;
-        console.log('✅ Order created successfully:', order._id);
+        console.log('✅ Guest order created successfully:', order._id);
         toast.success('Order created! Please add shipping address.');
 
         // Navigate to address page with order ID and coupon data

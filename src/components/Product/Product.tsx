@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useProducts } from "@/hooks/useProducts";
 import { useCart } from "@/contexts/CartContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { productsAPI } from "@/services/api";
 
@@ -28,7 +27,6 @@ const Products = () => {
   const [categories, setCategories] = useState<string[]>(["All Products"]);
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { addToCart } = useCart();
-  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   // Fetch categories from backend
@@ -83,13 +81,18 @@ const Products = () => {
 
   const handleAddToCart = async (e: React.MouseEvent, product: any) => {
     e.stopPropagation();
-    if (!isAuthenticated) {
-      toast.error('Please login to add items to cart');
-      navigate('/login');
-      return;
-    }
     try {
-      await addToCart(product.id, 1);
+      await addToCart(
+        product.id,
+        1,
+        '1',
+        product.priceNumeric,
+        product.name,
+        product.price,
+        product.priceNumeric,
+        product.imageSrc,
+        product.weight
+      );
       toast.success(`${product.name} added to cart!`);
     } catch (error: any) {
       toast.error(error.message || "Failed to add to cart");
@@ -98,17 +101,8 @@ const Products = () => {
 
   const handleWishlistToggle = async (e: React.MouseEvent, product: any) => {
     e.stopPropagation();
-    if (!isAuthenticated) {
-      toast.error('Please login to add items to wishlist');
-      navigate('/login');
-      return;
-    }
-    try {
-      const action = await toggleWishlist(product.id);
-      toast.success(action === 'added' ? 'Added to wishlist!' : 'Removed from wishlist!');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update wishlist');
-    }
+    // Wishlist disabled for guest checkout
+    toast.error('Wishlist feature is not available');
   };
 
   return (

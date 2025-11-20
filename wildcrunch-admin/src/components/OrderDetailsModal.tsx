@@ -143,19 +143,37 @@ export default function OrderDetailsModal({ order, onClose }: OrderDetailsModalP
             <div className="flex items-center space-x-2 mb-4">
               <User className="text-primary-500" size={20} />
               <h3 className="text-lg font-semibold text-gray-900">Customer Information</h3>
+              {order.isGuest && (
+                <span className="badge bg-purple-100 text-purple-800 text-xs ml-2">Guest</span>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-600">Name</p>
-                <p className="font-medium text-gray-900">{order.user?.name || 'N/A'}</p>
+                <p className="font-medium text-gray-900">
+                  {order.isGuest
+                    ? (order.guestName || order.shippingAddress?.fullName || 'N/A')
+                    : (order.user?.name || 'N/A')
+                  }
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Email</p>
-                <p className="font-medium text-gray-900">{order.user?.email || 'N/A'}</p>
+                <p className="font-medium text-gray-900">
+                  {order.isGuest
+                    ? (order.guestEmail || order.shippingAddress?.email || 'N/A')
+                    : (order.user?.email || 'N/A')
+                  }
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Phone</p>
-                <p className="font-medium text-gray-900">{order.user?.phone || 'N/A'}</p>
+                <p className="font-medium text-gray-900">
+                  {order.isGuest
+                    ? (order.guestPhone || order.shippingAddress?.phone || 'N/A')
+                    : (order.user?.phone || 'N/A')
+                  }
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Order Date</p>

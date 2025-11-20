@@ -1,23 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Plus, CheckCircle2, XCircle, Loader2, Calendar } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, XCircle, Loader2, Calendar } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../Header';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { authAPI, ordersAPI } from '@/services/api';
-
-
+import { ordersAPI } from '@/services/api';
 
 const AddressPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get('orderId');
-  const { isAuthenticated, user } = useAuth();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [pincodeServiceable, setPincodeServiceable] = useState<boolean | null>(null);
   const [checkingPincode, setCheckingPincode] = useState(false);
   const [shippingRate, setShippingRate] = useState<number | null>(null);
@@ -40,12 +33,6 @@ const AddressPage = () => {
   });
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      toast.error('Please login to continue');
-      navigate('/login');
-      return;
-    }
-
     if (!orderId) {
       toast.error('Order ID not found');
       navigate('/cart');
@@ -55,33 +42,12 @@ const AddressPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-
-        // Fetch order details
         const orderResponse = await ordersAPI.getById(orderId);
         if (orderResponse.data.success) {
           setOrder(orderResponse.data.data);
         }
-
-        // Fetch user profile with saved addresses
-        const profileResponse = await authAPI.getProfile();
-        if (profileResponse.data.success && profileResponse.data.data.addresses) {
-          const addresses = profileResponse.data.data.addresses;
-          setSavedAddresses(addresses);
-
-          // Auto-select default address if available
-          const defaultAddress = addresses.find((addr: any) => addr.isDefault);
-          if (defaultAddress && !showNewAddressForm) {
-            setSelectedAddressId(defaultAddress._id);
-            // Calculate shipping for default address
-            if (defaultAddress.pincode && orderResponse.data.data) {
-              setTimeout(() => {
-                checkPincodeServiceability(defaultAddress.pincode);
-              }, 500);
-            }
-          }
-        }
       } catch (error: any) {
-        toast.error('Failed to fetch data');
+        toast.error('Failed to fetch order data');
         console.error('Fetch error:', error);
       } finally {
         setLoading(false);
@@ -89,18 +55,7 @@ const AddressPage = () => {
     };
 
     fetchData();
-
-    // Pre-fill email if available
-    if (user?.email) {
-      setFormData(prev => ({
-        ...prev,
-        email: user.email,
-        firstName: user.name?.split(' ')[0] || '',
-        lastName: user.name?.split(' ')[1] || '',
-        contactNumber: user.phone || '',
-      }));
-    }
-  }, [isAuthenticated, user, navigate, orderId]);
+  }, [navigate, orderId]);
 
   // Check pincode serviceability and calculate shipping
   const checkPincodeServiceability = async (pincode: string) => {
@@ -114,35 +69,24 @@ const AddressPage = () => {
     setCheckingPincode(true);
     try {
       const response = await ordersAPI.calculateShipping(pincode, order?.itemsPrice || 0);
-      console.log('📦 Shipping calculation response:', response.data);
-      console.log('📦 Full response data:', JSON.stringify(response.data, null, 2));
 
       if (response.data.success && response.data.serviceable) {
         setPincodeServiceable(true);
         setShippingRate(response.data.shippingPrice || 60);
 
-        // Set expected delivery date - check multiple possible field names
+        // Set expected delivery date
         let deliveryDate = null;
-
-        // Check direct fields first
         if (response.data.expectedDeliveryDate) {
           deliveryDate = response.data.expectedDeliveryDate;
         } else if (response.data.expected_delivery_date) {
           deliveryDate = response.data.expected_delivery_date;
-        }
-        // Check in nested data object
-        else if (response.data.data) {
+        } else if (response.data.data) {
           const rateData = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
           deliveryDate = rateData?.expected_delivery_date || rateData?.expectedDeliveryDate;
         }
 
         if (deliveryDate) {
-          console.log('📅 Setting expected delivery date:', deliveryDate);
           setExpectedDeliveryDate(deliveryDate);
-          console.log('✅ State updated - expectedDeliveryDate:', deliveryDate);
-        } else {
-          console.log('⚠️ No expected delivery date found in response');
-          setExpectedDeliveryDate(null);
         }
 
         toast.success('Delivery available to this pincode!');
@@ -157,7 +101,6 @@ const AddressPage = () => {
       setPincodeServiceable(null);
       setShippingRate(null);
       setExpectedDeliveryDate(null);
-      // Fallback - allow checkout with default shipping
     } finally {
       setCheckingPincode(false);
     }
@@ -176,100 +119,52 @@ const AddressPage = () => {
     }
   };
 
-  const handleAddressSelect = async (addressId: string) => {
-    setSelectedAddressId(addressId);
-    setShowNewAddressForm(false);
-
-    // Calculate shipping for selected address
-    const selectedAddress = savedAddresses.find(addr => addr._id === addressId);
-    if (selectedAddress && selectedAddress.pincode) {
-      await checkPincodeServiceability(selectedAddress.pincode);
-    }
-  };
-
-  const handleNewAddress = () => {
-    setSelectedAddressId(null);
-    setShowNewAddressForm(true);
-  };
-
   const handleNextStep = async () => {
     if (!orderId) {
       toast.error('Order ID not found');
       return;
     }
 
-    let shippingAddress;
+    // Validate essential fields
+    const requiredFields = [
+      { field: 'firstName', label: 'First name' },
+      { field: 'lastName', label: 'Last name' },
+      { field: 'email', label: 'Email' },
+      { field: 'contactNumber', label: 'Contact number' },
+      { field: 'area', label: 'Area' },
+      { field: 'zipcode', label: 'Zipcode' },
+      { field: 'city', label: 'City' },
+      { field: 'state', label: 'State' },
+    ];
 
-    // If using saved address
-    if (selectedAddressId && !showNewAddressForm) {
-      const selectedAddress = savedAddresses.find(addr => addr._id === selectedAddressId);
-      if (!selectedAddress) {
-        toast.error('Please select an address');
+    for (const { field, label } of requiredFields) {
+      if (!formData[field as keyof typeof formData]) {
+        toast.error(`${label} is required`);
         return;
       }
-
-      // Validate privacy policy and general conditions
-      if (!formData.privacyPolicy) {
-        toast.error('Please accept the privacy policy');
-        return;
-      }
-
-      if (!formData.generalConditions) {
-        toast.error('Please accept the general conditions');
-        return;
-      }
-
-      shippingAddress = {
-        fullName: selectedAddress.name,
-        email: formData.email || user?.email,
-        phone: selectedAddress.phone,
-        address: `${selectedAddress.addressLine1}${selectedAddress.addressLine2 ? ', ' + selectedAddress.addressLine2 : ''}`,
-        area: selectedAddress.area || '',
-        city: selectedAddress.city,
-        state: selectedAddress.state,
-        pincode: selectedAddress.pincode,
-      };
-    } else {
-      // Using new address form - only validate essential fields
-      const requiredFields = [
-        { field: 'firstName', label: 'First name' },
-        { field: 'lastName', label: 'Last name' },
-        { field: 'email', label: 'Email' },
-        { field: 'contactNumber', label: 'Contact number' },
-        { field: 'area', label: 'Area' },
-        { field: 'zipcode', label: 'Zipcode' },
-        { field: 'city', label: 'City' },
-        { field: 'state', label: 'State' },
-      ];
-
-      for (const { field, label } of requiredFields) {
-        if (!formData[field as keyof typeof formData]) {
-          toast.error(`${label} is required`);
-          return;
-        }
-      }
-
-      if (!formData.privacyPolicy) {
-        toast.error('Please accept the privacy policy');
-        return;
-      }
-
-      if (!formData.generalConditions) {
-        toast.error('Please accept the general conditions');
-        return;
-      }
-
-      shippingAddress = {
-        fullName: `${formData.firstName} ${formData.lastName}`,
-        email: formData.email,
-        phone: formData.contactNumber,
-        address: `${formData.blockHouseNo}, ${formData.buildingName}, ${formData.streetNumber}`,
-        area: formData.area,
-        city: formData.city,
-        state: formData.state,
-        pincode: formData.zipcode,
-      };
     }
+
+    if (!formData.privacyPolicy) {
+      toast.error('Please accept the privacy policy');
+      return;
+    }
+
+    if (!formData.generalConditions) {
+      toast.error('Please accept the general conditions');
+      return;
+    }
+
+    const addressParts = [formData.blockHouseNo, formData.buildingName, formData.streetNumber].filter(Boolean);
+    const shippingAddress = {
+      fullName: `${formData.firstName} ${formData.lastName}`,
+      email: formData.email,
+      phone: formData.contactNumber,
+      address: addressParts.length > 0 ? addressParts.join(', ') : formData.area,
+      area: formData.area,
+      city: formData.city,
+      state: formData.state,
+      pincode: formData.zipcode,
+    };
 
     try {
       // Update order with shipping address (Step 2) - This will also calculate shipping dynamically
@@ -278,35 +173,13 @@ const AddressPage = () => {
       if (response.data.success) {
         const updatedOrder = response.data.data;
 
-        // Log the updated shipping details
-        console.log('�� Shipping calculated:', {
+        console.log('🚚 Shipping calculated:', {
           shippingPrice: updatedOrder.shippingPrice,
           totalPrice: updatedOrder.totalPrice
         });
 
-        // Update local order state with new shipping price
         setOrder(updatedOrder);
         setShippingRate(updatedOrder.shippingPrice);
-
-        // Save new address to profile only if it's a new address
-        if (showNewAddressForm && !selectedAddressId) {
-          try {
-            await authAPI.addAddress({
-              name: shippingAddress.fullName,
-              phone: shippingAddress.phone,
-              addressLine1: `${formData.blockHouseNo}, ${formData.buildingName}`,
-              addressLine2: formData.streetNumber,
-              area: formData.area,
-              city: formData.city,
-              state: formData.state,
-              pincode: formData.zipcode,
-              isDefault: savedAddresses.length === 0 // Make default if first address
-            });
-          } catch (err) {
-            // Ignore profile save error, continue with checkout
-            console.log('Failed to save to profile, but continuing checkout');
-          }
-        }
 
         toast.success(`Address saved! Shipping: ₹${updatedOrder.shippingPrice}`);
 
@@ -342,9 +215,6 @@ const AddressPage = () => {
     { name: 'Confirm', completed: false, active: false },
   ];
 
-  // Debug log for rendering
-  console.log('🎨 Rendering Address page - expectedDeliveryDate:', expectedDeliveryDate, 'shippingRate:', shippingRate);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8F7E5]">
@@ -363,303 +233,232 @@ const AddressPage = () => {
 
       {/* Progress Steps */}
       <div className="container mx-auto px-4 py-8 mt-24">
-<div className="flex items-center justify-center mb-8 relative w-full">
-  {/* Gray background line */}
-  <div className="absolute top-2 left-0 right-0 h-0.5 bg-gray-300 z-0"></div>
+        <div className="flex items-center justify-center mb-8 relative w-full">
+          {/* Gray background line */}
+          <div className="absolute top-2 left-0 right-0 h-0.5 bg-gray-300 z-0"></div>
 
-  {/* Black progress line */}
-  <div
-    className="absolute top-2 left-0 h-0.5 bg-black transition-all duration-500 z-0"
-    style={{
-      width: `${(steps.findIndex(step => step.active) / (steps.length - 1)) * 100}%`,
-    }}
-  ></div>
+          {/* Black progress line */}
+          <div
+            className="absolute top-2 left-0 h-0.5 bg-black transition-all duration-500 z-0"
+            style={{
+              width: `${(steps.findIndex(step => step.active) / (steps.length - 1)) * 100}%`,
+            }}
+          ></div>
 
-  {/* Steps */}
-  <div className="flex items-center justify-between w-full max-w-3xl relative z-10">
-    {steps.map((step, index) => (
-      <div key={step.name} className="flex flex-col items-center">
-        {/* Circle */}
-        <div
-          className={`w-4 h-4 rounded-full border-2 border-white ${
-            step.active
-              ? "bg-black"
-              : step.completed
-              ? "bg-black"
-              : "bg-gray-300"
-          }`}
-        ></div>
-        {/* Label */}
-        <span className="text-sm mt-2 font-medium">{step.name}</span>
-      </div>
-    ))}
-  </div>
-</div>
-
+          {/* Steps */}
+          <div className="flex items-center justify-between w-full max-w-3xl relative z-10">
+            {steps.map((step) => (
+              <div key={step.name} className="flex flex-col items-center">
+                {/* Circle */}
+                <div
+                  className={`w-4 h-4 rounded-full border-2 border-white ${
+                    step.active
+                      ? "bg-black"
+                      : step.completed
+                      ? "bg-black"
+                      : "bg-gray-300"
+                  }`}
+                ></div>
+                {/* Label */}
+                <span className="text-sm mt-2 font-medium">{step.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Main Content */}
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
-          {/* Left Side - Address Selection (8 columns) */}
+          {/* Left Side - Address Form (8 columns) */}
           <div className="lg:col-span-8">
-            {/* Saved Addresses */}
-            {savedAddresses.length > 0 && !showNewAddressForm && (
-              <div className="mb-8">
-                <h1 className="text-2xl lg:text-3xl font-bold mb-6 text-black font-suez">Select Delivery Address</h1>
-                <div className="border-b border-dashed border-black mb-6 w-full"></div>
+            {/* Personal Information */}
+            <div className="mb-8">
+              <h1 className="text-2xl lg:text-3xl font-bold text-black font-suez">Personal Information</h1>
+              <div className="border-b border-dashed border-black mb-6 w-full"></div>
 
-                <div className="space-y-4">
-                  {savedAddresses.map((address) => (
-                    <div
-                      key={address._id}
-                      onClick={() => handleAddressSelect(address._id)}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        selectedAddressId === address._id
-                          ? 'border-[#F1B213] bg-[#F1B213]/10'
-                          : 'border-gray-300 hover:border-[#F1B213]/50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-suez font-bold text-lg">{address.name}</span>
-                            {address.isDefault && (
-                              <span className="bg-[#F1B213] text-white text-xs px-2 py-1 rounded-full">Default</span>
-                            )}
-                          </div>
-                          <p className="text-sm font-jost text-gray-700">{address.phone}</p>
-                          <p className="text-sm font-jost text-gray-700 mt-1">
-                            {address.addressLine1}
-                            {address.addressLine2 && `, ${address.addressLine2}`}
-                          </p>
-                          <p className="text-sm font-jost text-gray-700">
-                            {address.city}, {address.state} - {address.pincode}
-                          </p>
-                        </div>
-                        <input
-                          type="radio"
-                          checked={selectedAddressId === address._id}
-                          onChange={() => handleAddressSelect(address._id)}
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-                  ))}
-
-                  <button
-                    onClick={handleNewAddress}
-                    className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#F1B213] transition-colors flex items-center justify-center gap-2 text-[#F1B213] font-suez"
-                  >
-                    <Plus className="h-5 w-5" />
-                    Add New Address
-                  </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">First name*</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    placeholder="First Name"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">Last name*</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    placeholder="Last Name"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
                 </div>
               </div>
-            )}
 
-            {/* New Address Form */}
-            {(showNewAddressForm || savedAddresses.length === 0) && (
-              <>
-                {/* Personal Information */}
-                <div className="mb-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <h1 className="text-2xl lg:text-3xl font-bold text-black font-suez">Personal Information</h1>
-                    {savedAddresses.length > 0 && (
-                      <button
-                        onClick={() => setShowNewAddressForm(false)}
-                        className="text-sm text-[#F1B213] font-suez hover:underline"
-                      >
-                        Use Saved Address
-                      </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">Email*</label>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="Email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">Contact Number*</label>
+                  <input
+                    type="tel"
+                    name="contactNumber"
+                    placeholder="Contact Number"
+                    value={formData.contactNumber}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Shipping Address */}
+            <div>
+              <h2 className="text-2xl lg:text-3xl font-bold mb-6 text-black font-suez">Shipping address</h2>
+              <div className="border-b border-dashed border-black mb-6 w-full"></div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">Building name</label>
+                  <input
+                    type="text"
+                    name="buildingName"
+                    placeholder="Building Name (Optional)"
+                    value={formData.buildingName}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">Block/flat/house No.</label>
+                  <input
+                    type="text"
+                    name="blockHouseNo"
+                    placeholder="Enter --- (Optional)"
+                    value={formData.blockHouseNo}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">Street Number</label>
+                  <input
+                    type="text"
+                    name="streetNumber"
+                    placeholder="Street number (Optional)"
+                    value={formData.streetNumber}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">Area*</label>
+                  <input
+                    type="text"
+                    name="area"
+                    placeholder="Area"
+                    value={formData.area}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">Zipcode*</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="zipcode"
+                      placeholder="Code"
+                      value={formData.zipcode}
+                      onChange={handleInputChange}
+                      maxLength={6}
+                      className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                      style={{ fontFamily: 'Jost, sans-serif' }}
+                    />
+                    {checkingPincode && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <Loader2 className="w-5 h-5 text-[#F1B213] animate-spin" />
+                      </div>
+                    )}
+                    {!checkingPincode && pincodeServiceable === true && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <CheckCircle2 className="w-5 h-5 text-green-500" />
+                      </div>
+                    )}
+                    {!checkingPincode && pincodeServiceable === false && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <XCircle className="w-5 h-5 text-red-500" />
+                      </div>
                     )}
                   </div>
-                  <div className="border-b border-dashed border-black mb-6 w-full"></div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">First name*</label>
-                      <input
-                        type="text"
-                        name="firstName"
-                        placeholder="First Name"
-                        value={formData.firstName}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">Last name*</label>
-                      <input
-                        type="text"
-                        name="lastName"
-                        placeholder="Last Name"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">Email*</label>
-                      <input
-                        type="email"
-                        name="email"
-                        placeholder="Email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">Contact Number*</label>
-                      <input
-                        type="tel"
-                        name="contactNumber"
-                        placeholder="Contact Number"
-                        value={formData.contactNumber}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
-                    </div>
-                  </div>
+                  {pincodeServiceable === true && shippingRate !== null && (
+                    <p className="text-xs text-green-600 mt-1 font-jost">
+                      Delivery available • Shipping: ₹{shippingRate}
+                    </p>
+                  )}
+                  {pincodeServiceable === false && (
+                    <p className="text-xs text-red-600 mt-1 font-jost">
+                      Delivery not available to this pincode
+                    </p>
+                  )}
                 </div>
-
-                {/* Shipping Address */}
                 <div>
-                  <h2 className="text-2xl lg:text-3xl font-bold mb-6 text-black font-suez">Shipping address</h2>
-                  <div className="border-b border-dashed border-black mb-6 w-full"></div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">Building name</label>
-                      <input
-                        type="text"
-                        name="buildingName"
-                        placeholder="Building Name (Optional)"
-                        value={formData.buildingName}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">Block/flat/house No.</label>
-                      <input
-                        type="text"
-                        name="blockHouseNo"
-                        placeholder="Enter --- (Optional)"
-                        value={formData.blockHouseNo}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">Street Number</label>
-                      <input
-                        type="text"
-                        name="streetNumber"
-                        placeholder="Street number (Optional)"
-                        value={formData.streetNumber}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">Area*</label>
-                      <input
-                        type="text"
-                        name="area"
-                        placeholder="Area"
-                        value={formData.area}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">Zipcode*</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          name="zipcode"
-                          placeholder="Code"
-                          value={formData.zipcode}
-                          onChange={handleInputChange}
-                          maxLength={6}
-                          className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                          style={{ fontFamily: 'Jost, sans-serif' }}
-                        />
-                        {checkingPincode && (
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <Loader2 className="w-5 h-5 text-[#F1B213] animate-spin" />
-                          </div>
-                        )}
-                        {!checkingPincode && pincodeServiceable === true && (
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <CheckCircle2 className="w-5 h-5 text-green-500" />
-                          </div>
-                        )}
-                        {!checkingPincode && pincodeServiceable === false && (
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <XCircle className="w-5 h-5 text-red-500" />
-                          </div>
-                        )}
-                      </div>
-                      {pincodeServiceable === true && shippingRate !== null && (
-                        <p className="text-xs text-green-600 mt-1 font-jost">
-                          Delivery available • Shipping: ₹{shippingRate}
-                        </p>
-                      )}
-                      {pincodeServiceable === false && (
-                        <p className="text-xs text-red-600 mt-1 font-jost">
-                          Delivery not available to this pincode
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">City*</label>
-                      <input
-                        type="text"
-                        name="city"
-                        placeholder="City"
-                        value={formData.city}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 font-suez">State*</label>
-                      <input
-                        type="text"
-                        name="state"
-                        placeholder="State"
-                        value={formData.state}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
-                        style={{ fontFamily: 'Jost, sans-serif' }}
-                      />
-                    </div>
-                  </div>
+                  <label className="block text-sm font-medium mb-2 font-suez">City*</label>
+                  <input
+                    type="text"
+                    name="city"
+                    placeholder="City"
+                    value={formData.city}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
                 </div>
-              </>
-            )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2 font-suez">State*</label>
+                  <input
+                    type="text"
+                    name="state"
+                    placeholder="State"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#F1B213] placeholder-jost"
+                    style={{ fontFamily: 'Jost, sans-serif' }}
+                  />
+                </div>
+              </div>
+            </div>
 
             {/* Checkboxes */}
             <div className="space-y-4 mb-8">
@@ -726,12 +525,10 @@ const AddressPage = () => {
                       <Loader2 className="w-4 h-4 animate-spin text-[#F1B213]" />
                       <span className="font-medium font-suez text-gray-500">Calculating...</span>
                     </div>
-                  ) : !selectedAddressId && !showNewAddressForm ? (
-                    <span className="font-medium font-suez text-gray-500 text-sm">Select address</span>
                   ) : shippingRate ? (
                     <span className="font-medium font-suez">₹{deliveryCharge}.00</span>
                   ) : (
-                    <span className="font-medium font-suez text-gray-500 text-sm">--</span>
+                    <span className="font-medium font-suez text-gray-500 text-sm">Enter pincode</span>
                   )}
                 </div>
 

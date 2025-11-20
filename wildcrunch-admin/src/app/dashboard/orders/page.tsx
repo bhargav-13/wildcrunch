@@ -30,7 +30,11 @@ export default function OrdersPage() {
         (order) =>
           order._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
           order.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          order.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+          order.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          order.guestEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          order.guestName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          order.shippingAddress?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          order.shippingAddress?.fullName?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -177,11 +181,22 @@ export default function OrdersPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium text-gray-900">
-                            {order.user?.name || 'N/A'}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900">
+                              {order.isGuest
+                                ? (order.guestName || order.shippingAddress?.fullName || 'N/A')
+                                : (order.user?.name || 'N/A')
+                              }
+                            </p>
+                            {order.isGuest && (
+                              <span className="badge bg-purple-100 text-purple-800 text-xs">Guest</span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500">
-                            {order.user?.email || 'N/A'}
+                            {order.isGuest
+                              ? (order.guestEmail || order.shippingAddress?.email || 'N/A')
+                              : (order.user?.email || 'N/A')
+                            }
                           </p>
                         </div>
                       </td>

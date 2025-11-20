@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { paymentAPI } from '@/services/api';
-import { useAuth } from '@/contexts/AuthContext';
 
 declare global {
   interface Window {
@@ -29,7 +28,6 @@ interface RazorpayOptions {
 export const usePayment = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
 
   const initializePayment = async (
     order: any,  // Existing order with Razorpay order ID
@@ -81,9 +79,9 @@ export const usePayment = () => {
           }
         },
         prefill: {
-          name: user?.name || '',
-          email: user?.email || '',
-          contact: user?.phone || '',
+          name: order.shippingAddress?.fullName || order.guestName || '',
+          email: order.shippingAddress?.email || order.guestEmail || '',
+          contact: order.shippingAddress?.phone || order.guestPhone || '',
         },
         theme: {
           color: '#F1B213',

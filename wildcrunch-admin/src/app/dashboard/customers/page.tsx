@@ -15,6 +15,7 @@ interface Customer {
   ordersCount: number;
   totalSpent: number;
   lastOrderDate?: Date;
+  isGuest: boolean;
 }
 
 export default function CustomersPage() {
@@ -55,11 +56,33 @@ export default function CustomersPage() {
       const customerMap = new Map<string, Customer>();
 
       orders.forEach((order: any) => {
-        const userId = order.user?._id || order.user;
-        if (!userId) return;
+        // Handle both registered users and guest orders
+        let customerId: string;
+        let customerName: string;
+        let customerEmail: string;
+        let customerPhone: string | undefined;
+        let isGuest: boolean;
 
-        if (customerMap.has(userId)) {
-          const customer = customerMap.get(userId)!;
+        if (order.isGuest) {
+          // Guest customer - use email as unique identifier
+          customerId = order.guestEmail || 'unknown';
+          customerName = order.guestName || 'Guest Customer';
+          customerEmail = order.guestEmail || 'N/A';
+          customerPhone = order.guestPhone;
+          isGuest = true;
+        } else {
+          // Registered user
+          const userId = order.user?._id || order.user;
+          if (!userId) return; // Skip if no user ID
+          customerId = userId;
+          customerName = order.user?.name || 'Unknown';
+          customerEmail = order.user?.email || 'N/A';
+          customerPhone = order.user?.phone;
+          isGuest = false;
+        }
+
+        if (customerMap.has(customerId)) {
+          const customer = customerMap.get(customerId)!;
           customer.ordersCount += 1;
           if (order.isPaid) {
             customer.totalSpent += order.totalPrice;
@@ -71,14 +94,15 @@ export default function CustomersPage() {
             customer.lastOrderDate = new Date(order.createdAt);
           }
         } else {
-          customerMap.set(userId, {
-            _id: userId,
-            name: order.user?.name || 'Unknown',
-            email: order.user?.email || 'N/A',
-            phone: order.user?.phone,
+          customerMap.set(customerId, {
+            _id: customerId,
+            name: customerName,
+            email: customerEmail,
+            phone: customerPhone,
             ordersCount: 1,
             totalSpent: order.isPaid ? order.totalPrice : 0,
             lastOrderDate: new Date(order.createdAt),
+            isGuest: isGuest,
           });
         }
       });
@@ -153,7 +177,12 @@ export default function CustomersPage() {
                       </span>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">{customer.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900">{customer.name}</h3>
+                        {customer.isGuest && (
+                          <span className="badge bg-purple-100 text-purple-800 text-xs">Guest</span>
+                        )}
+                      </div>
                       <span className="badge bg-blue-100 text-blue-800">
                         {customer.ordersCount} {customer.ordersCount === 1 ? 'order' : 'orders'}
                       </span>

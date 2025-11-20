@@ -20,10 +20,142 @@ const getRazorpay = () => {
   return razorpayInstance;
 };
 
+// @route   POST /api/orders/guest/create
+// @desc    Create unpaid guest order from localStorage cart data
+// @access  Public (no authentication required)
+router.post('/guest/create', async (req, res) => {
+  console.log('🛒 CREATE GUEST ORDER - Route hit!');
+
+  try {
+    const { items, couponCode, couponDiscount } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cart is empty'
+      });
+    }
+
+    // Verify products and build order items with ObjectIds
+    const orderItems = [];
+    let itemsPrice = 0;
+
+    for (const cartItem of items) {
+      const product = await Product.findById(cartItem.productId);
+
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: `Product ${cartItem.productId} not found`
+        });
+      }
+
+      const itemPrice = cartItem.packPrice || cartItem.priceNumeric;
+
+      orderItems.push({
+        product: product._id,  // MongoDB ObjectId
+        productId: cartItem.productId,
+        name: cartItem.name,
+        price: cartItem.price,
+        priceNumeric: cartItem.priceNumeric,
+        imageSrc: cartItem.imageSrc,
+        weight: cartItem.weight,
+        quantity: cartItem.quantity,
+        pack: cartItem.pack || '1',
+        packPrice: cartItem.packPrice
+      });
+
+      itemsPrice += itemPrice * cartItem.quantity;
+    }
+
+    // Shipping will be calculated after address is provided
+    const shippingPrice = 0; // Will be updated when address is added
+    const discount = couponDiscount || 0;
+    const totalPrice = itemsPrice + shippingPrice - discount;
+
+    console.log(`💰 Creating Razorpay order for amount: ₹${totalPrice}`);
+
+    // Create Razorpay order
+    let razorpayOrder;
+    try {
+      const razorpay = getRazorpay();
+      razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(totalPrice * 100), // Amount in paise
+        currency: 'INR',
+        receipt: `receipt_${Date.now()}`,
+        notes: {
+          guestOrder: true,
+        },
+      });
+      console.log(`✅ Razorpay order created: ${razorpayOrder.id}`);
+    } catch (razorpayError) {
+      console.error('❌ Razorpay order creation failed:', razorpayError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create payment order. Please try again.'
+      });
+    }
+
+    // Generate order number
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const orderNumber = `WC-${timestamp}-${random}`;
+
+    console.log(`📝 Creating database order: ${orderNumber}`);
+
+    // Create order with UNPAID status
+    let order;
+    try {
+      order = await Order.create({
+        isGuest: true,
+        orderNumber: orderNumber,
+        items: orderItems,
+        paymentMethod: 'razorpay',
+        paymentStatus: 'Pending',  // Unpaid initially
+        isPaid: false,
+        itemsPrice,
+        shippingPrice,
+        totalPrice,
+        coupon: couponCode ? {
+          code: couponCode,
+          discount: discount
+        } : undefined,
+        paymentDetails: {
+          razorpayOrderId: razorpayOrder.id  // Save Razorpay order ID
+        }
+      });
+
+      console.log(`✅ Order created successfully: ${order._id}`);
+    } catch (orderError) {
+      console.error('❌ Database order creation failed:', orderError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create order. Please try again.'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        order,
+        razorpayOrder
+      },
+      message: 'Guest order created successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Create guest order error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // @route   POST /api/orders/calculate-shipping
 // @desc    Calculate shipping rate for cart
-// @access  Private
-router.post('/calculate-shipping', protect, async (req, res) => {
+// @access  Public (no authentication required for guest checkout)
+router.post('/calculate-shipping', async (req, res) => {
   try {
     const { pincode, cartTotal } = req.body;
 
@@ -245,7 +377,7 @@ router.post('/create-from-cart', protect, async (req, res) => {
 // @route   PUT /api/orders/:id/address
 // @desc    Add shipping address to order (Step 2: Address page)
 // @access  Private
-router.put('/:id/address', protect, async (req, res) => {
+router.put('/:id/address', async (req, res) => {
   try {
     const { shippingAddress } = req.body;
 
@@ -265,12 +397,17 @@ router.put('/:id/address', protect, async (req, res) => {
       });
     }
 
-    // Verify user owns this order
-    if (order.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to update this order'
-      });
+    // For guest orders, save email, name, and phone from shipping address
+    if (order.isGuest) {
+      if (shippingAddress.email) {
+        order.guestEmail = shippingAddress.email;
+      }
+      if (shippingAddress.fullName) {
+        order.guestName = shippingAddress.fullName;
+      }
+      if (shippingAddress.phone) {
+        order.guestPhone = shippingAddress.phone;
+      }
     }
 
     // Update shipping address
@@ -399,8 +536,8 @@ router.get('/', protect, async (req, res) => {
 
 // @route   GET /api/orders/:id
 // @desc    Get order by ID
-// @access  Private
-router.get('/:id', protect, async (req, res) => {
+// @access  Public (for guest orders)
+router.get('/:id', async (req, res) => {
   try {
     const order = await Order.findById(req.params.id).populate('items.product');
 
@@ -411,13 +548,8 @@ router.get('/:id', protect, async (req, res) => {
       });
     }
 
-    // Make sure user owns this order or is admin
-    if (order.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to view this order'
-      });
-    }
+    // Guest orders are publicly accessible by order ID
+    // No authorization check needed for guest orders
 
     res.json({
       success: true,
@@ -589,8 +721,8 @@ router.put('/:id/status', protect, admin, async (req, res) => {
 
 // @route   GET /api/orders/:id/tracking
 // @desc    Get order tracking details
-// @access  Private
-router.get('/:id/tracking', protect, async (req, res) => {
+// @access  Public (for guest orders)
+router.get('/:id/tracking', async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
@@ -601,13 +733,8 @@ router.get('/:id/tracking', protect, async (req, res) => {
       });
     }
 
-    // Make sure user owns this order or is admin
-    if (order.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to view this order'
-      });
-    }
+    // Guest orders are publicly accessible by order ID
+    // No authorization check needed
 
     // If order has AWB number, fetch latest tracking from iThink Logistics
     if (order.shippingDetails?.awbNumber) {

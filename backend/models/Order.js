@@ -28,7 +28,23 @@ const orderSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false  // Made optional for guest checkout
+  },
+  isGuest: {
+    type: Boolean,
+    default: true  // Default to guest checkout
+  },
+  guestEmail: {
+    type: String,
+    required: false  // Will be set during checkout for guest users
+  },
+  guestName: {
+    type: String,
+    required: false
+  },
+  guestPhone: {
+    type: String,
+    required: false
   },
   orderNumber: {
     type: String,

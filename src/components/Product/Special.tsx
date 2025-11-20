@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { useProducts } from "@/hooks/useProducts";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useCart } from "@/contexts/CartContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 // Helper function to get color based on category
@@ -22,7 +21,6 @@ const getColorForCategory = (category: string) => {
 
 const Products = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   
@@ -49,28 +47,24 @@ const Products = () => {
 
   const handleWishlistToggle = async (e: React.MouseEvent, product: any) => {
     e.stopPropagation();
-    if (!isAuthenticated) {
-      toast.error('Please login to add items to wishlist');
-      navigate('/login');
-      return;
-    }
-    try {
-      const action = await toggleWishlist(product.id);
-      toast.success(action === 'added' ? 'Added to wishlist!' : 'Removed from wishlist!');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update wishlist');
-    }
+    // Wishlist disabled for guest checkout
+    toast.error('Wishlist feature is not available');
   };
 
   const handleAddToCart = async (e: React.MouseEvent, product: any) => {
     e.stopPropagation();
-    if (!isAuthenticated) {
-      toast.error('Please login to add items to cart');
-      navigate('/login');
-      return;
-    }
     try {
-      await addToCart(product.id, 1);
+      await addToCart(
+        product.id,
+        1,
+        '1',
+        product.priceNumeric,
+        product.name,
+        product.price,
+        product.priceNumeric,
+        product.imageSrc,
+        product.weight
+      );
       toast.success(`${product.name} added to cart!`);
     } catch (error: any) {
       toast.error(error.message || 'Failed to add to cart');

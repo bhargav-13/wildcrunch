@@ -4,7 +4,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../Header';
 import { useCart } from '@/contexts/CartContext';
 import { usePayment } from '@/hooks/usePayment';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ordersAPI } from '@/services/api';
 
@@ -17,17 +16,10 @@ const PaymentPage = () => {
   const [selectedPayment, setSelectedPayment] = useState('razor');
   const { clearCart } = useCart();
   const { initializePayment, loading: paymentLoading } = usePayment();
-  const { isAuthenticated } = useAuth();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      toast.error('Please login to continue');
-      navigate('/login');
-      return;
-    }
-
     if (!orderId) {
       toast.error('Order ID not found');
       navigate('/cart');
@@ -42,7 +34,7 @@ const PaymentPage = () => {
         if (response.data.success) {
           const fetchedOrder = response.data.data;
           setOrder(fetchedOrder);
-          
+
           // Check if order has shipping address
           if (!fetchedOrder.shippingAddress) {
             toast.error('Please add a shipping address first');
@@ -58,7 +50,7 @@ const PaymentPage = () => {
     };
 
     fetchOrder();
-  }, [isAuthenticated, navigate, orderId]);
+  }, [navigate, orderId]);
 
   // Get order items
   const orderItems = order?.items || [];

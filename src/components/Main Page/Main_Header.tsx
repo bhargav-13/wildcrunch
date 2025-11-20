@@ -1,11 +1,9 @@
-import { Heart, ShoppingCart, User, Menu, ArrowLeft, LogOut } from "lucide-react";
+import { ShoppingCart, Menu, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
-import { toast } from "sonner";
 import LogoWC from "@/assets/LogoWC.png";
 import Cart from "@/components/cart"; // import the new Cart component
 import img1 from "@/assets/1.png";
@@ -25,7 +23,6 @@ const Header = ({ offset = 0 }) => {
   const [pathData, setPathData] = useState(""); // store ECG path data
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, user, logout } = useAuth();
   const { totalItems } = useCart();
 
   // Generate ECG path only once when component mounts
@@ -74,21 +71,10 @@ useEffect(() => {
     { name: "Cart", path: "/cart" },
     { name: "Contact Us", path: "/contact" },
     { name: "Dealerships", path: "/dealerships" },
-    ...(isAuthenticated 
-      ? [{ name: "Profile", path: "/profile" }]
-      : [{ name: "Login", path: "/login" }]
-    ),
   ];
 
   const handleNavigation = (path) => {
     navigate(path);
-    setIsOpen(false);
-  };
-
-  const handleLogout = () => {
-    logout();
-    toast.success('Logged out successfully');
-    navigate('/');
     setIsOpen(false);
   };
 
@@ -120,58 +106,25 @@ useEffect(() => {
 
             {/* Actions */}
             <div className="flex items-center space-x-2.5">
-              {/* Show Login button when not authenticated */}
-              {!isAuthenticated ? (
-                <Button
-                  className="flex items-center gap-1.5 bg-[#F1B213] text-white px-4 sm:px-6 py-2 rounded-full text-sm font-semibold hover:bg-[#F8F7E5] hover:text-black"
-                  onClick={() => navigate('/login')}
-                >
-                  <User className="h-5 w-5" />
-                  <span className="font-sfpro">LOGIN</span>
-                </Button>
-              ) : (
-                <>
-                  {/* Wishlist - Only visible when authenticated */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="sm:w-8 sm:h-8 w-10 h-10 rounded-full border border-black text-black hover:bg-[#F1B213] hover:text-white hover:border-[#F1B213]"
-                    onClick={() => navigate("/wishlist")}
+              {/* Cart button - Always visible for guest checkout */}
+              <Button
+                className="relative flex items-center gap-1.5 bg-[#F1B213] text-white px-3 sm:px-5 py-1.5 rounded-full text-xs font-semibold hover:bg-[#F8F7E5] hover:text-black"
+                onClick={() => setCartOpen(true)}
+              >
+                <ShoppingCart className="h-5 w-5" />
+                <span className="font-sfpro hidden sm:inline">CART</span>
+                {/* Cart notification badge */}
+                {totalItems > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white"
                   >
-                    <Heart className="h-4 w-4" />
-                  </Button>
-
-                  {/* Cart button - Only visible when authenticated */}
-                  <Button
-                    className="relative flex items-center gap-1.5 bg-[#F1B213] text-white px-3 sm:px-5 py-1.5 rounded-full text-xs font-semibold hover:bg-[#F8F7E5] hover:text-black"
-                    onClick={() => setCartOpen(true)}
-                  >
-                    <ShoppingCart className="h-5 w-5" />
-                    <span className="font-sfpro hidden sm:inline">CART</span>
-                    {/* Cart notification badge */}
-                    {totalItems > 0 && (
-                      <motion.span
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 15 }}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white"
-                      >
-                        {totalItems > 99 ? '99+' : totalItems}
-                      </motion.span>
-                    )}
-                  </Button>
-
-                  {/* User - Only visible when authenticated */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-8 h-8 rounded-full border border-black text-black hover:bg-[#F1B213] hover:text-white hover:border-[#F1B213]"
-                    onClick={() => navigate('/profile')}
-                  >
-                    <User className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
+                    {totalItems > 99 ? '99+' : totalItems}
+                  </motion.span>
+                )}
+              </Button>
 
               {/* Burger Menu - Custom Implementation */}
               <motion.div
@@ -324,49 +277,6 @@ useEffect(() => {
                 </motion.div>
               );
             })}
-            
-            {/* Logout button - only shown when authenticated */}
-            {isAuthenticated && (
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 + menuItems.length * 0.1 }}
-              >
-                <motion.button
-                  onClick={handleLogout}
-                  className="text-left font-suez text-lg transition-colors w-full py-2 text-red-600 hover:text-red-700 flex items-center gap-2"
-                  whileHover={{ x: 10, transition: { duration: 0.2 } }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </motion.button>
-                <motion.hr
-                  className="border-b-2 border-dotted border-[#212121] w-1/2 mt-1"
-                  initial={{ width: 0 }}
-                  animate={{ width: "50%" }}
-                  transition={{
-                    delay: 0.5 + menuItems.length * 0.1,
-                    duration: 0.5,
-                    ease: [0.4, 0, 0.2, 1],
-                  }}
-                />
-              </motion.div>
-            )}
-            
-            {/* User info display when authenticated */}
-            {isAuthenticated && user && (
-              <motion.div
-                className="mt-8 pt-6 border-t-2 border-dashed border-[#212121]"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 + menuItems.length * 0.1 }}
-              >
-                <p className="text-sm font-jost text-gray-600">Logged in as:</p>
-                <p className="text-lg font-suez text-[#212121] mt-1">{user.name}</p>
-                <p className="text-sm font-jost text-gray-600">{user.email}</p>
-              </motion.div>
-            )}
           </nav>
         </div>
       </motion.div>

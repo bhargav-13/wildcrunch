@@ -9,7 +9,6 @@ import Review from "./Review.tsx";
 import Others from "./Others.tsx";
 import Footer from "../Footer.tsx";
 import Header from "@/components/Header";
-import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/hooks/useWishlist";
 import { toast } from "sonner";
@@ -19,7 +18,6 @@ const InProduct = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
 
@@ -91,12 +89,11 @@ const InProduct = () => {
     window.scrollTo(0, 0);
   }, [id]);
 
-  // Check if product is in wishlist
+  // Check if product is in wishlist (disabled for guest checkout)
   useEffect(() => {
-    if (selectedProduct && isAuthenticated) {
-      setIsWishlisted(isInWishlist(selectedProduct.id));
-    }
-  }, [selectedProduct, isAuthenticated, isInWishlist]);
+    // Wishlist disabled - always set to false
+    setIsWishlisted(false);
+  }, [selectedProduct]);
 
   // Calculate dynamic price based on pack selection using backend pricing data
   const calculatePrice = () => {
@@ -152,16 +149,23 @@ const InProduct = () => {
   };
 
   const handleAddToCart = async () => {
-    if (!isAuthenticated) {
-      toast.error('Please login to add items to cart');
-      navigate('/login');
-      return;
-    }
-
     if (!selectedProduct) return;
 
     try {
-      await addToCart(selectedProduct.id, quantity, selectedPack, displayPrice);
+      // Get current image
+      const currentImage = selectedProduct.images?.[currentImageIndex] || selectedProduct.images?.[0] || '';
+
+      await addToCart(
+        selectedProduct.id,
+        quantity,
+        selectedPack,
+        displayPrice,
+        selectedProduct.name,
+        `₹${displayPrice}`,
+        displayPrice,
+        currentImage,
+        selectedProduct.weight ? `${selectedProduct.weight}g` : '80g'
+      );
       const packLabel = selectedPack === '1' ? 'Individual' : `Pack of ${selectedPack}`;
       toast.success(`${selectedProduct.name} (${packLabel}, Qty: ${quantity}) added to cart!`);
       console.log('Added to cart:', { productId: selectedProduct.id, quantity, pack: selectedPack, packPrice: displayPrice });
@@ -176,13 +180,11 @@ const InProduct = () => {
   };
 
   const handleWishlistToggle = async () => {
-    if (!isAuthenticated) {
-      toast.error('Please login to add items to wishlist');
-      navigate('/login');
-      return;
-    }
-
     if (!selectedProduct) return;
+
+    // Wishlist disabled for guest checkout
+    toast.error('Wishlist feature is not available');
+    return;
 
     try {
       const action = await toggleWishlist(selectedProduct.id);

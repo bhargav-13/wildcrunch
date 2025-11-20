@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { protect } from '../middleware/auth.js';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
-import { sendOrderNotification } from '../utils/sendEmail.js';
+import { sendOrderNotification, sendCustomerOrderConfirmation } from '../utils/sendEmail.js';
 import ithinkLogistics from '../utils/ithinkLogistics.js';
 
 const router = express.Router();
@@ -68,8 +68,8 @@ router.post('/create-order', protect, async (req, res) => {
 
 // @route   POST /api/payment/verify
 // @desc    Verify Razorpay payment and update order (Step 3: After payment)
-// @access  Private
-router.post('/verify', protect, async (req, res) => {
+// @access  Public (for guest checkout)
+router.post('/verify', async (req, res) => {
   try {
     const {
       razorpay_order_id,
@@ -92,7 +92,7 @@ router.post('/verify', protect, async (req, res) => {
           orderStatus: 'Cancelled'
         });
       }
-      
+
       return res.status(400).json({
         success: false,
         message: 'Invalid payment signature',
@@ -101,19 +101,11 @@ router.post('/verify', protect, async (req, res) => {
 
     // Find existing order
     const order = await Order.findById(orderId);
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
-      });
-    }
-
-    // Verify user owns this order
-    if (order.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to update this order'
       });
     }
 
@@ -138,7 +130,11 @@ router.post('/verify', protect, async (req, res) => {
     };
 
     await order.save();
-    await order.populate('user', 'name email');
+
+    // Populate user if registered, otherwise skip
+    if (order.user) {
+      await order.populate('user', 'name email');
+    }
     await order.populate('items.product');
 
     console.log('Payment successful for order:', order.orderNumber);
@@ -248,7 +244,7 @@ router.post('/verify', protect, async (req, res) => {
 
     // Send email notification to admin
     try {
-      const emailResult = await sendOrderNotification(order, order.user);
+      const emailResult = await sendOrderNotification(order, order.user || { name: order.guestName, email: order.guestEmail });
       if (emailResult.success) {
         console.log('✅ Admin notification email sent successfully');
       } else {
@@ -256,6 +252,19 @@ router.post('/verify', protect, async (req, res) => {
       }
     } catch (emailError) {
       console.error('❌ Error sending admin notification email:', emailError);
+      // Don't fail the payment verification if email fails
+    }
+
+    // Send order confirmation email to customer
+    try {
+      const customerEmailResult = await sendCustomerOrderConfirmation(order);
+      if (customerEmailResult.success) {
+        console.log('✅ Customer confirmation email sent successfully');
+      } else {
+        console.log('⚠️ Failed to send customer confirmation email:', customerEmailResult.message);
+      }
+    } catch (customerEmailError) {
+      console.error('❌ Error sending customer confirmation email:', customerEmailError);
       // Don't fail the payment verification if email fails
     }
 
