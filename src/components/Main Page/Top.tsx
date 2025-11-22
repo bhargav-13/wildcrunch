@@ -2,7 +2,7 @@ import React from "react";
 import HeaderImg from "@/assets/Header_img.png";
 
 const Top: React.FC = () => {
-  const items = Array(50).fill("Happy client");
+  const items = Array(50).fill("Free Delivery");
 
   return (
     <div className="w-full overflow-hidden py-2 bg-[#f1b213] z-[61] relative">

@@ -20,7 +20,7 @@ const ContactSection = () => {
   const contactInfo = [
     { icon: <Phone className="w-8 h-8 sm:w-10 sm:h-10 text-black" />, title: "Phone", info: "+91 25545 58920" },
     { icon: <MessageCircle className="w-8 h-8 sm:w-10 sm:h-10 text-black" />, title: "Whatsapp", info: "+91 25545 58920" },
-    { icon: <Mail className="w-8 h-8 sm:w-10 sm:h-10 text-black" />, title: "Email", info: "Wildcrunch@Gmail.Com" },
+    { icon: <Mail className="w-8 h-8 sm:w-10 sm:h-10 text-black" />, title: "Email", info: "care@wildcrunch.in" },
     { icon: <Store className="w-8 h-8 sm:w-10 sm:h-10 text-black" />, title: "Our Shop", info: "Himalnagar" }
   ];
 

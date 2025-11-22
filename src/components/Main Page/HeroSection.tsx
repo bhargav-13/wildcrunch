@@ -18,8 +18,9 @@ import img8M from "@/assets/8M.png";
 const HeroSection = () => {
   const [index, setIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [direction, setDirection] = useState(1); // +1 for next, -1 for previous
 
-  // ✅ Choose correct image set
+  // ✅ Image sets
   const desktopImages = [img12, img10, img11, img2];
   const mobileImages = [img3M, img4M, img5M, img6M, img7M, img8M];
   const images = isMobile ? mobileImages : desktopImages;
@@ -35,96 +36,87 @@ const HeroSection = () => {
   // ✅ Auto change every 4 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % images.length);
+      handleNext();
     }, 4000);
     return () => clearInterval(interval);
   }, [images.length]);
 
-  // ✅ Randomize direction for subtle transitions
-  const randomDir = () => (Math.random() > 0.5 ? 1 : -1);
+  const handleNext = () => {
+    setDirection(1);
+    setIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const handlePrev = () => {
+    setDirection(-1);
+    setIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  const handleDotClick = (i) => {
+    setDirection(i > index ? 1 : -1);
+    setIndex(i);
+  };
+
+  const variants = {
+    enter: (direction) => ({
+      x: direction > 0 ? "100%" : "-100%",
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (direction) => ({
+      x: direction < 0 ? "100%" : "-100%",
+      opacity: 0,
+    }),
+  };
 
   return (
     <section className="relative w-full bg-[#F8F7E5] overflow-hidden">
-      {/* ✅ Top gap for floating header */}
+      {/* Top gap for floating header */}
       <div className="h-[100px] lg:h-[85px] bg-[#F8F7E5]"></div>
 
-      {/* ✅ Image slider container */}
+      {/* ✅ Slider */}
       <div
-        className={`relative overflow-hidden perspective-[1500px] ${
+        className={`relative overflow-hidden ${
           isMobile ? "w-screen h-[60vh]" : "w-full h-[85vh]"
         }`}
       >
-        <AnimatePresence mode="wait">
+        <AnimatePresence custom={direction} mode="wait">
           <motion.img
             key={images[index]}
             src={images[index]}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{
+              x: { type: "spring", stiffness: 300, damping: 30 },
+              opacity: { duration: 0.3 },
+            }}
             alt={`slide-${index}`}
             className={`absolute inset-0 ${
               isMobile
-                ? "w-screen h-[55vh] object-cover bg-[#F8F7E5]" // ✅ Full-width mobile fix
-                : "w-full h-full object-cover"
+                ? "w-screen h-[55vh] bg-[#F8F7E5]"
+                : "w-screen h-full"
             }`}
-            initial={{
-              opacity: 0,
-              scale: 1.2,
-              rotateY: 15 * randomDir(),
-              rotateX: 10 * randomDir(),
-              filter: "blur(10px)",
-              y: 50 * randomDir(),
-            }}
-            animate={{
-              opacity: 1,
-              scale: 1,
-              rotateY: 0,
-              rotateX: 0,
-              filter: "blur(0px)",
-              y: 0,
-            }}
-            exit={{
-              opacity: 0,
-              scale: 1.1,
-              rotateY: -15 * randomDir(),
-              rotateX: -10 * randomDir(),
-              filter: "blur(8px)",
-              y: -50 * randomDir(),
-            }}
-            transition={{
-              duration: 1.6,
-              ease: [0.45, 0, 0.55, 1],
-            }}
           />
         </AnimatePresence>
 
-        {/* ✨ Moving light streak */}
-        <motion.div
-          className="absolute top-0 left-[-50%] w-[200%] h-full bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none"
-          animate={{ x: ["-100%", "100%"] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "linear" }}
-        />
 
-        {/* 🌫️ Ambient glow overlay */}
-        <motion.div
-          className="absolute inset-0 bg-gradient-radial from-white/10 via-transparent to-black/40 mix-blend-soft-light pointer-events-none"
-          animate={{
-            opacity: [0.2, 0.4, 0.2],
-            scale: [1, 1.05, 1],
-          }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        />
-
-        {/* 🎥 Parallax floating effect */}
-        <motion.div
-          className="absolute inset-0"
-          animate={{
-            y: [0, -10, 0, 10, 0],
-            rotateZ: [0.5, -0.5, 0],
-          }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
+        {/* ✅ Dots */}
+        <div className="absolute bottom-5 w-full flex justify-center gap-2">
+          {images.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => handleDotClick(i)}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                i === index ? "bg-black/80 scale-110" : "bg-black/30 hover:bg-black/50"
+              }`}
+            ></button>
+          ))}
+        </div>
       </div>
     </section>
   );
