@@ -79,7 +79,7 @@ const HeroSection = () => {
       {/* ✅ Slider */}
       <div
         className={`relative overflow-hidden ${
-          isMobile ? "w-screen h-[60vh]" : "w-full h-[85vh]"
+          isMobile ? "w-screen h-[65vh]" : "w-full h-[85vh]"
         }`}
       >
         <AnimatePresence custom={direction} mode="wait">
@@ -98,7 +98,7 @@ const HeroSection = () => {
             alt={`slide-${index}`}
             className={`absolute inset-0 ${
               isMobile
-                ? "w-screen h-[55vh] bg-[#F8F7E5]"
+                ? "w-screen h-[65vh] bg-[#F8F7E5]"
                 : "w-screen h-full"
             }`}
           />
