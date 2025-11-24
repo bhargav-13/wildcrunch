@@ -275,12 +275,23 @@ const Products = () => {
                   </h3>
                   <p className="font-jost text-sm">{product.weight}</p>
                   <p className="font-suez text-lg">{product.price}</p>
+                  {!product.inStock && (
+                    <span className="inline-block mt-2 bg-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full w-fit">
+                      OUT OF STOCK
+                    </span>
+                  )}
                 </div>
 
                 {/* Cart */}
                 <button
-                  className="absolute -bottom-4 -right-4 bg-[#FCEB81] w-12 h-12 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition"
-                  onClick={(e) => handleAddToCart(e, product)}
+                  className={`absolute -bottom-4 -right-4 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition ${
+                    product.inStock
+                      ? 'bg-[#FCEB81] hover:scale-110'
+                      : 'bg-gray-400 cursor-not-allowed opacity-60'
+                  }`}
+                  onClick={(e) => product.inStock && handleAddToCart(e, product)}
+                  disabled={!product.inStock}
+                  title={product.inStock ? 'Add to cart' : 'Out of stock'}
                 >
                   <ShoppingCart size={20} className="text-gray-800" />
                 </button>

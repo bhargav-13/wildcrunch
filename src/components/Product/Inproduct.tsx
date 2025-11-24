@@ -151,6 +151,12 @@ const InProduct = () => {
   const handleAddToCart = async () => {
     if (!selectedProduct) return;
 
+    // Check if product is in stock
+    if (!selectedProduct.inStock) {
+      toast.error('This product is currently out of stock');
+      return;
+    }
+
     try {
       // Get current image
       const currentImage = selectedProduct.images?.[currentImageIndex] || selectedProduct.images?.[0] || '';
@@ -261,9 +267,14 @@ const InProduct = () => {
   >
     <h3 className="font-suez text-sm mb-1 text-white">DISCOVER OUR MAKHANA</h3>
     <p className="font-suez text-4xl text-black mb-2">{selectedProduct.name}</p>
-    <div className="flex items-center gap-4 text-white">
+    <div className="flex items-center gap-4 text-white flex-wrap">
       <p className="font-suez text-base">{selectedProduct.weight}</p>
       <p className="font-suez text-lg">₹{displayPrice}</p>
+      {!selectedProduct.inStock && (
+        <span className="bg-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
+          OUT OF STOCK
+        </span>
+      )}
     </div>
   </motion.div>
 
@@ -437,10 +448,15 @@ const InProduct = () => {
 
         {/* Add to Cart */}
         <button
-          className="flex-1 bg-[#F1B213] text-white py-2 rounded-full font-jost font-semibold text-sm"
+          className={`flex-1 py-2 rounded-full font-jost font-semibold text-sm ${
+            selectedProduct.inStock
+              ? 'bg-[#F1B213] text-white hover:bg-[#D19A0F]'
+              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+          }`}
           onClick={handleAddToCart}
+          disabled={!selectedProduct.inStock}
         >
-          ADD TO CART
+          {selectedProduct.inStock ? 'ADD TO CART' : 'OUT OF STOCK'}
         </button>
       </div>
 
@@ -686,6 +702,11 @@ const InProduct = () => {
                       {" "}
                       ₹{displayPrice}{" "}
                     </p>{" "}
+                    {!selectedProduct.inStock && (
+                      <span className="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-full">
+                        OUT OF STOCK
+                      </span>
+                    )}
                   </div>{" "}
                 </motion.div>{" "}
                 {/* Pack Selection Radio Buttons */}{" "}
@@ -780,12 +801,17 @@ const InProduct = () => {
                     {" "}
                     <Heart size={20} className={`text-white ${isWishlisted ? 'fill-white' : ''}`} />{" "}
                   </button>{" "}
-                  <button 
-                    className="bg-[#F1B213] text-white px-6 py-3 rounded-full font-jost whitespace-nowrap"
+                  <button
+                    className={`px-6 py-3 rounded-full font-jost whitespace-nowrap ${
+                      selectedProduct.inStock
+                        ? 'bg-[#F1B213] text-white hover:bg-[#D19A0F]'
+                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    }`}
                     onClick={handleAddToCart}
+                    disabled={!selectedProduct.inStock}
                   >
                     {" "}
-                    ADD TO CART{" "}
+                    {selectedProduct.inStock ? 'ADD TO CART' : 'OUT OF STOCK'}{" "}
                   </button>{" "}
                 </motion.div>{" "}
               </motion.div>
