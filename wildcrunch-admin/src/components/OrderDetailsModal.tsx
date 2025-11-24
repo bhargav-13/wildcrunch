@@ -326,7 +326,7 @@ export default function OrderDetailsModal({ order, onClose }: OrderDetailsModalP
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-sm text-yellow-800 mb-2">
-                  ⚠️ Shipment not created yet. Click "Create Shipment" to manually create the shipment with iThink Logistics.
+                  ⚠️ Shipment not created yet. Click &quot;Create Shipment&quot; to manually create the shipment with iThink Logistics.
                 </p>
                 <p className="text-xs text-yellow-700">
                   This will generate an AWB number and create a shipment for this order.
