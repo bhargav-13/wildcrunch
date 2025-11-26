@@ -525,8 +525,24 @@ const AddressPage = () => {
                       <Loader2 className="w-4 h-4 animate-spin text-[#F1B213]" />
                       <span className="font-medium font-suez text-gray-500">Calculating...</span>
                     </div>
-                  ) : shippingRate ? (
-                    <span className="font-medium font-suez">₹{deliveryCharge}.00</span>
+                  ) : shippingRate !== null ? (
+                    <div className="flex items-center gap-2">
+                      {deliveryCharge === 0 ? (
+                        <>
+                          <span className="font-medium font-suez line-through text-gray-400">₹60.00</span>
+                          <span className="font-bold font-suez text-green-600">FREE</span>
+                          <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-suez">🎉 Unlocked!</span>
+                        </>
+                      ) : deliveryCharge === 50 ? (
+                        <>
+                          <span className="font-medium font-suez line-through text-gray-400">₹60.00</span>
+                          <span className="font-bold font-suez text-orange-600">₹50.00</span>
+                          <span className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded-full font-suez">🚚 Reduced</span>
+                        </>
+                      ) : (
+                        <span className="font-medium font-suez">₹{deliveryCharge}.00</span>
+                      )}
+                    </div>
                   ) : (
                     <span className="font-medium font-suez text-gray-500 text-sm">Enter pincode</span>
                   )}

@@ -162,6 +162,43 @@ const CartPage = () => {
   const total = subtotal - discount;
   const totalQuantity = cart?.totalItems || 0;
 
+  // Free delivery thresholds
+  const REDUCED_DELIVERY_THRESHOLD = 249; // ₹249+ gets ₹50 delivery
+  const FREE_DELIVERY_THRESHOLD = 499; // ₹499+ gets free delivery
+
+  // Calculate delivery status
+  const getDeliveryStatus = () => {
+    if (subtotal >= FREE_DELIVERY_THRESHOLD) {
+      return {
+        isFree: true,
+        message: "You've unlocked FREE delivery!",
+        amountRemaining: 0,
+        progress: 100,
+        deliveryCharge: 0
+      };
+    } else if (subtotal >= REDUCED_DELIVERY_THRESHOLD) {
+      const remaining = FREE_DELIVERY_THRESHOLD - subtotal;
+      return {
+        isFree: false,
+        message: `Add ₹${remaining} more for FREE delivery!`,
+        amountRemaining: remaining,
+        progress: (subtotal / FREE_DELIVERY_THRESHOLD) * 100,
+        deliveryCharge: 50
+      };
+    } else {
+      const remaining = REDUCED_DELIVERY_THRESHOLD - subtotal;
+      return {
+        isFree: false,
+        message: `Add ₹${remaining} more to get ₹50 delivery charge!`,
+        amountRemaining: remaining,
+        progress: (subtotal / FREE_DELIVERY_THRESHOLD) * 100,
+        deliveryCharge: 60 // Will be calculated based on pincode
+      };
+    }
+  };
+
+  const deliveryStatus = getDeliveryStatus();
+
   // Progress steps
   const steps = [
     { name: 'Bag', completed: true, active: true },
@@ -402,6 +439,49 @@ const CartPage = () => {
               </div>
             )}
 
+            {/* Free Delivery Progress Bar */}
+            <div className="mt-6 p-4 border border-black rounded-lg bg-gradient-to-r from-green-50 to-blue-50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-bold font-suez text-black">
+                  {deliveryStatus.isFree ? '🎉 FREE Delivery Unlocked!' : '🚚 Delivery Progress'}
+                </span>
+                {!deliveryStatus.isFree && (
+                  <span className="text-xs font-jost text-gray-600">
+                    ₹{subtotal} / ₹{FREE_DELIVERY_THRESHOLD}
+                  </span>
+                )}
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-2 overflow-hidden">
+                <div
+                  className={`h-3 rounded-full transition-all duration-500 ${
+                    deliveryStatus.isFree
+                      ? 'bg-gradient-to-r from-green-500 to-green-600'
+                      : deliveryStatus.deliveryCharge === 50
+                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
+                      : 'bg-gradient-to-r from-red-400 to-orange-400'
+                  }`}
+                  style={{ width: `${deliveryStatus.progress}%` }}
+                ></div>
+              </div>
+
+              {/* Message */}
+              <p className={`text-sm font-jost ${deliveryStatus.isFree ? 'text-green-700 font-bold' : 'text-gray-700'}`}>
+                {deliveryStatus.message}
+              </p>
+
+              {/* Milestones */}
+              <div className="flex justify-between mt-3 text-xs font-jost">
+                <span className={subtotal >= REDUCED_DELIVERY_THRESHOLD ? 'text-green-600 font-bold' : 'text-gray-500'}>
+                  ₹249 - ₹50 Delivery
+                </span>
+                <span className={deliveryStatus.isFree ? 'text-green-600 font-bold' : 'text-gray-500'}>
+                  ₹499 - FREE Delivery
+                </span>
+              </div>
+            </div>
+
             {/* Continue Shopping */}
             <button 
               onClick={() => window.location.href = '/products'}
@@ -630,6 +710,49 @@ const CartPage = () => {
               )}
             </div>
           )}
+
+          {/* Free Delivery Progress Bar - Mobile */}
+          <div className="mb-4 p-3 border border-black rounded-lg bg-gradient-to-r from-green-50 to-blue-50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold font-suez text-black">
+                {deliveryStatus.isFree ? '🎉 FREE Delivery!' : '🚚 Delivery'}
+              </span>
+              {!deliveryStatus.isFree && (
+                <span className="text-xs font-jost text-gray-600">
+                  ₹{subtotal} / ₹{FREE_DELIVERY_THRESHOLD}
+                </span>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-2 overflow-hidden">
+              <div
+                className={`h-2 rounded-full transition-all duration-500 ${
+                  deliveryStatus.isFree
+                    ? 'bg-gradient-to-r from-green-500 to-green-600'
+                    : deliveryStatus.deliveryCharge === 50
+                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
+                    : 'bg-gradient-to-r from-red-400 to-orange-400'
+                }`}
+                style={{ width: `${deliveryStatus.progress}%` }}
+              ></div>
+            </div>
+
+            {/* Message */}
+            <p className={`text-xs font-jost ${deliveryStatus.isFree ? 'text-green-700 font-bold' : 'text-gray-700'}`}>
+              {deliveryStatus.message}
+            </p>
+
+            {/* Milestones */}
+            <div className="flex justify-between mt-2 text-xs font-jost">
+              <span className={subtotal >= REDUCED_DELIVERY_THRESHOLD ? 'text-green-600 font-bold' : 'text-gray-500'}>
+                ₹249 - ₹50
+              </span>
+              <span className={deliveryStatus.isFree ? 'text-green-600 font-bold' : 'text-gray-500'}>
+                ₹499 - FREE
+              </span>
+            </div>
+          </div>
 
           {/* Order Summary */}
           <div className="bg-white p-4 rounded-lg border border-black mb-6">

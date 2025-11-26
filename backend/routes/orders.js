@@ -186,34 +186,49 @@ router.post('/calculate-shipping', async (req, res) => {
     try {
       console.log(`📍 Calculate shipping: ${pincode} | Cart: ₹${cartTotal}`);
 
-      const rateResult = await ithinkLogistics.getRate({
-        fromPincode: '400067', // Your warehouse pincode
-        toPincode: pincode,
-        weight: 0.5, // Default weight 500g
-        paymentMode: 'prepaid',
-        productMrp: cartTotal || 100,
-      });
+      // Free delivery thresholds
+      const REDUCED_DELIVERY_THRESHOLD = 249;
+      const FREE_DELIVERY_THRESHOLD = 499;
 
-      console.log('📦 iThink API Response:', JSON.stringify(rateResult, null, 2));
-
-      // Extract shipping price and expected delivery from response
       let shippingPrice = 60; // Default fallback
       let expectedDeliveryDate = null;
 
-      if (rateResult?.data && Array.isArray(rateResult.data) && rateResult.data.length > 0) {
-        // Get the first available rate
-        const firstRate = rateResult.data[0];
-        shippingPrice = firstRate.rate || 60;
-
-        // Extract expected delivery from parent response object (not from individual rate)
-        expectedDeliveryDate = rateResult.expected_delivery_date ||
-                              rateResult.expectedDeliveryDate ||
-                              rateResult.edd;
-
-        console.log(`✅ Shipping: ₹${shippingPrice} | Expected delivery: ${expectedDeliveryDate || 'Not provided'}`);
+      // Apply free delivery logic based on cart total
+      if (cartTotal >= FREE_DELIVERY_THRESHOLD) {
+        // Free delivery for orders ₹499+
+        shippingPrice = 0;
+        console.log(`🎉 FREE DELIVERY applied (Cart total: ₹${cartTotal} >= ₹${FREE_DELIVERY_THRESHOLD})`);
+      } else if (cartTotal >= REDUCED_DELIVERY_THRESHOLD) {
+        // Reduced delivery charge for orders ₹249+
+        shippingPrice = 50;
+        console.log(`🚚 REDUCED DELIVERY applied: ₹50 (Cart total: ₹${cartTotal} >= ₹${REDUCED_DELIVERY_THRESHOLD})`);
       } else {
-        console.log(`⚠️ No rate data in response, using default shipping: ₹60`);
-        console.log('Response structure:', JSON.stringify(rateResult, null, 2));
+        // For orders below ₹249, fetch actual shipping rate from iThink Logistics
+        const rateResult = await ithinkLogistics.getRate({
+          fromPincode: '400067', // Your warehouse pincode
+          toPincode: pincode,
+          weight: 0.5, // Default weight 500g
+          paymentMode: 'prepaid',
+          productMrp: cartTotal || 100,
+        });
+
+        console.log('📦 iThink API Response:', JSON.stringify(rateResult, null, 2));
+
+        if (rateResult?.data && Array.isArray(rateResult.data) && rateResult.data.length > 0) {
+          // Get the first available rate
+          const firstRate = rateResult.data[0];
+          shippingPrice = firstRate.rate || 60;
+
+          // Extract expected delivery from parent response object (not from individual rate)
+          expectedDeliveryDate = rateResult.expected_delivery_date ||
+                                rateResult.expectedDeliveryDate ||
+                                rateResult.edd;
+
+          console.log(`✅ Shipping from API: ₹${shippingPrice} | Expected delivery: ${expectedDeliveryDate || 'Not provided'}`);
+        } else {
+          console.log(`⚠️ No rate data in response, using default shipping: ₹60`);
+          console.log('Response structure:', JSON.stringify(rateResult, null, 2));
+        }
       }
 
       res.json({
@@ -221,7 +236,7 @@ router.post('/calculate-shipping', async (req, res) => {
         serviceable: true,
         shippingPrice: parseFloat(shippingPrice),
         expectedDeliveryDate: expectedDeliveryDate,
-        data: rateResult,
+        data: null,
       });
     } catch (error) {
       console.error('Rate calculation error:', error);
@@ -419,48 +434,66 @@ router.put('/:id/address', async (req, res) => {
     if (shippingAddress.pincode) {
       try {
         console.log(`📍 Calculating shipping for pincode: ${shippingAddress.pincode}`);
-        console.log(`📦 Request params:`, {
-          fromPincode: '400067',
-          toPincode: shippingAddress.pincode,
-          weight: 0.5,
-          paymentMode: order.paymentMethod === 'razorpay' ? 'prepaid' : 'COD',
-          productMrp: order.itemsPrice,
-        });
+        console.log(`💰 Order items price: ₹${order.itemsPrice}`);
 
-        const rateResult = await ithinkLogistics.getRate({
-          fromPincode: '400067', // Your warehouse pincode
-          toPincode: shippingAddress.pincode,
-          weight: 0.5, // Default weight
-          paymentMode: order.paymentMethod === 'razorpay' ? 'prepaid' : 'COD',
-          productMrp: order.itemsPrice,
-        });
+        // Free delivery thresholds
+        const REDUCED_DELIVERY_THRESHOLD = 249;
+        const FREE_DELIVERY_THRESHOLD = 499;
 
-        // Log the full API response for debugging
-        console.log('🔍 Full API Response:', JSON.stringify(rateResult, null, 2));
-
-        // Extract shipping price and expected delivery from API response
-        if (rateResult?.data && Array.isArray(rateResult.data) && rateResult.data.length > 0) {
-          // Get the first available rate (they're all the same in this case)
-          const firstRate = rateResult.data[0];
-          dynamicShippingPrice = firstRate.rate || 60;
-
-          // Extract expected delivery date
-          const expectedDeliveryDate = firstRate.expected_delivery_date || firstRate.expectedDeliveryDate;
-
-          // Store in shippingDetails if available
-          if (expectedDeliveryDate) {
-            if (!order.shippingDetails) {
-              order.shippingDetails = {};
-            }
-            // Calculate estimated delivery date
-            order.shippingDetails.estimatedDelivery = expectedDeliveryDate;
-            console.log(`📅 Expected delivery: ${expectedDeliveryDate}`);
-          }
-
-          console.log(`✅ Dynamic shipping calculated: ₹${dynamicShippingPrice} from ${firstRate.logistic_name}`);
+        // Apply free delivery logic based on order items price
+        if (order.itemsPrice >= FREE_DELIVERY_THRESHOLD) {
+          // Free delivery for orders ₹499+
+          dynamicShippingPrice = 0;
+          console.log(`🎉 FREE DELIVERY applied (Order total: ₹${order.itemsPrice} >= ₹${FREE_DELIVERY_THRESHOLD})`);
+        } else if (order.itemsPrice >= REDUCED_DELIVERY_THRESHOLD) {
+          // Reduced delivery charge for orders ₹249+
+          dynamicShippingPrice = 50;
+          console.log(`🚚 REDUCED DELIVERY applied: ₹50 (Order total: ₹${order.itemsPrice} >= ₹${REDUCED_DELIVERY_THRESHOLD})`);
         } else {
-          console.log(`⚠️ Could not find shipping price in API response`);
-          console.log(`⚠️ Using default shipping: ₹60`);
+          // For orders below ₹249, fetch actual shipping rate from iThink Logistics
+          console.log(`📦 Request params:`, {
+            fromPincode: '400067',
+            toPincode: shippingAddress.pincode,
+            weight: 0.5,
+            paymentMode: order.paymentMethod === 'razorpay' ? 'prepaid' : 'COD',
+            productMrp: order.itemsPrice,
+          });
+
+          const rateResult = await ithinkLogistics.getRate({
+            fromPincode: '400067', // Your warehouse pincode
+            toPincode: shippingAddress.pincode,
+            weight: 0.5, // Default weight
+            paymentMode: order.paymentMethod === 'razorpay' ? 'prepaid' : 'COD',
+            productMrp: order.itemsPrice,
+          });
+
+          // Log the full API response for debugging
+          console.log('🔍 Full API Response:', JSON.stringify(rateResult, null, 2));
+
+          // Extract shipping price and expected delivery from API response
+          if (rateResult?.data && Array.isArray(rateResult.data) && rateResult.data.length > 0) {
+            // Get the first available rate (they're all the same in this case)
+            const firstRate = rateResult.data[0];
+            dynamicShippingPrice = firstRate.rate || 60;
+
+            // Extract expected delivery date
+            const expectedDeliveryDate = firstRate.expected_delivery_date || firstRate.expectedDeliveryDate;
+
+            // Store in shippingDetails if available
+            if (expectedDeliveryDate) {
+              if (!order.shippingDetails) {
+                order.shippingDetails = {};
+              }
+              // Calculate estimated delivery date
+              order.shippingDetails.estimatedDelivery = expectedDeliveryDate;
+              console.log(`📅 Expected delivery: ${expectedDeliveryDate}`);
+            }
+
+            console.log(`✅ Dynamic shipping calculated: ₹${dynamicShippingPrice} from ${firstRate.logistic_name}`);
+          } else {
+            console.log(`⚠️ Could not find shipping price in API response`);
+            console.log(`⚠️ Using default shipping: ₹60`);
+          }
         }
       } catch (shippingError) {
         console.error('❌ Shipping calculation error:', shippingError.message);

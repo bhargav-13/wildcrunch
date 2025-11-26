@@ -11,7 +11,7 @@ interface CartProps {
 const Cart = ({ isOpen, onClose }: CartProps) => {
   const navigate = useNavigate();
   const { cartItems, totalPrice, totalItems } = useCart();
-  
+
   // Use cart items directly from backend (already has images)
   const enhancedCartItems = cartItems.map((item: any) => {
     return {
@@ -20,6 +20,40 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
       imageSrc: item.imageSrc || item.product?.images?.[0] || '',
     };
   });
+
+  // Free delivery thresholds
+  const REDUCED_DELIVERY_THRESHOLD = 249;
+  const FREE_DELIVERY_THRESHOLD = 499;
+
+  // Calculate delivery status
+  const getDeliveryStatus = () => {
+    if (totalPrice >= FREE_DELIVERY_THRESHOLD) {
+      return {
+        isFree: true,
+        message: "FREE delivery unlocked!",
+        progress: 100,
+        deliveryCharge: 0
+      };
+    } else if (totalPrice >= REDUCED_DELIVERY_THRESHOLD) {
+      const remaining = FREE_DELIVERY_THRESHOLD - totalPrice;
+      return {
+        isFree: false,
+        message: `₹${remaining} away from FREE delivery`,
+        progress: (totalPrice / FREE_DELIVERY_THRESHOLD) * 100,
+        deliveryCharge: 50
+      };
+    } else {
+      const remaining = REDUCED_DELIVERY_THRESHOLD - totalPrice;
+      return {
+        isFree: false,
+        message: `₹${remaining} for ₹50 delivery`,
+        progress: (totalPrice / FREE_DELIVERY_THRESHOLD) * 100,
+        deliveryCharge: 60
+      };
+    }
+  };
+
+  const deliveryStatus = getDeliveryStatus();
 
   const handleContinueToCart = () => {
     navigate('/cart');
@@ -78,6 +112,53 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
           <div className="flex items-center justify-between p-4 border-t border-dashed border-black font-suez text-lg">
             <span>Subtotal ({totalItems} product{totalItems !== 1 ? "s" : ""})</span>
             <span>₹{totalPrice}</span>
+          </div>
+
+          {/* Free Delivery Progress Bar */}
+          <div className="px-4 pb-3">
+            <div className="p-3 border border-black rounded-lg bg-gradient-to-r from-green-50 to-blue-50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold font-suez text-black">
+                  {deliveryStatus.isFree ? '🎉 FREE Delivery!' : '🚚 Delivery'}
+                </span>
+                {!deliveryStatus.isFree && (
+                  <span className="text-xs font-jost text-gray-600">
+                    ₹{totalPrice} / ₹{FREE_DELIVERY_THRESHOLD}
+                  </span>
+                )}
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-2 overflow-hidden">
+                <div
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    deliveryStatus.isFree
+                      ? 'bg-gradient-to-r from-green-500 to-green-600'
+                      : deliveryStatus.deliveryCharge === 50
+                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
+                      : 'bg-gradient-to-r from-red-400 to-orange-400'
+                  }`}
+                  style={{ width: `${deliveryStatus.progress}%` }}
+                ></div>
+              </div>
+
+              {/* Message */}
+              <p className={`text-xs font-jost text-center ${deliveryStatus.isFree ? 'text-green-700 font-bold' : 'text-gray-700'}`}>
+                {deliveryStatus.message}
+              </p>
+
+              {/* Milestones - Compact */}
+              {!deliveryStatus.isFree && (
+                <div className="flex justify-between mt-2 text-xs font-jost">
+                  <span className={totalPrice >= REDUCED_DELIVERY_THRESHOLD ? 'text-green-600 font-bold' : 'text-gray-500'}>
+                    ₹249
+                  </span>
+                  <span className={deliveryStatus.isFree ? 'text-green-600 font-bold' : 'text-gray-500'}>
+                    ₹499
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Footer actions */}
