@@ -2,7 +2,15 @@ import React from "react";
 import HeaderImg from "@/assets/Header_img.png";
 
 const Top: React.FC = () => {
-  const items = Array(50).fill("Free Delivery");
+  const offers = [
+    "Free Delivery on Orders ₹499+",
+    "₹50 Delivery on Orders ₹249+",
+    "Free Delivery on Orders ₹499+",
+    "₹50 Delivery on Orders ₹249+"
+  ];
+
+  // Repeat offers to create seamless marquee
+  const items = Array(15).fill(offers).flat();
 
   return (
     <div className="w-full overflow-hidden py-2 bg-[#f1b213] z-[61] relative">

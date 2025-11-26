@@ -1,24 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Minus, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { ChevronLeft, Minus, Plus, Trash2, ChevronDown, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../Header';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from 'sonner';
-import { ordersAPI } from '@/services/api';
+import { ordersAPI, productsAPI } from '@/services/api';
 
 const CartPage = () => {
   const navigate = useNavigate();
-  const { cart, loading, updateQuantity, removeFromCart, refreshCart } = useCart();
+  const { cart, loading, addToCart, updateQuantity, removeFromCart, refreshCart } = useCart();
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
   const [showCoupons, setShowCoupons] = useState(false);
+  const [recommendedProducts, setRecommendedProducts] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
   useEffect(() => {
     refreshCart();
     fetchAvailableCoupons();
+    fetchRecommendedProducts();
   }, []);
 
   // Fetch available coupons
@@ -30,6 +33,46 @@ const CartPage = () => {
       }
     } catch (error) {
       console.error('Failed to fetch coupons:', error);
+    }
+  };
+
+  // Fetch recommended products
+  const fetchRecommendedProducts = async () => {
+    try {
+      setLoadingProducts(true);
+      const response = await productsAPI.getAll({ limit: 6 });
+      console.log('📦 Products API response:', response.data);
+      if (response.data.success) {
+        // API returns products in response.data.products, not response.data.data
+        const products = response.data.products || [];
+        console.log('✅ Fetched products:', products);
+        setRecommendedProducts(products);
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch products:', error);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  // Add product to cart from recommendations
+  const handleAddRecommendedProduct = async (product: any) => {
+    try {
+      await addToCart(
+        product._id,
+        1,
+        '1',
+        product.price,
+        product.name,
+        `₹${product.price}`,
+        product.price,
+        product.images?.[0] || '',
+        product.weight
+      );
+      toast.success(`${product.name} added to cart!`);
+      refreshCart();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add product');
     }
   };
 
@@ -198,6 +241,13 @@ const CartPage = () => {
   };
 
   const deliveryStatus = getDeliveryStatus();
+
+  // Debug logging
+  console.log('🔍 Debug Info:', {
+    isFree: deliveryStatus.isFree,
+    recommendedProductsCount: recommendedProducts.length,
+    shouldShowRecommended: !deliveryStatus.isFree && recommendedProducts.length > 0
+  });
 
   // Progress steps
   const steps = [
@@ -483,7 +533,7 @@ const CartPage = () => {
             </div>
 
             {/* Continue Shopping */}
-            <button 
+            <button
               onClick={() => window.location.href = '/products'}
               className="flex items-center gap-2 mt-6 text-black hover:text-[#F1B213] transition-colors"
             >
@@ -559,6 +609,86 @@ const CartPage = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Recommended Products - Desktop (Full Width) */}
+        <div className="hidden lg:block mt-16">
+          {!deliveryStatus.isFree && recommendedProducts.length > 0 && (
+            <div>
+              <h2 className="text-3xl font-bold mb-4 text-black font-suez text-center">
+                {deliveryStatus.deliveryCharge === 50 ? '🎯 Add More for FREE Delivery' : '✨ Unlock Better Offers'}
+              </h2>
+              <p className="text-base font-jost text-gray-600 mb-12 text-center">
+                {deliveryStatus.deliveryCharge === 50
+                  ? `Just ₹${FREE_DELIVERY_THRESHOLD - subtotal} more to get FREE delivery!`
+                  : `Add ₹${REDUCED_DELIVERY_THRESHOLD - subtotal} more to unlock ₹50 delivery`
+                }
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-12 sm:gap-x-12 sm:gap-y-24 sm:mt-40">
+                {recommendedProducts.slice(0, 4).map((product, index) => (
+                  <div
+                    key={product._id}
+                    onClick={() => navigate(`/product/${product._id}`)}
+                    className="relative rounded-3xl p-6 shadow-md min-h-[280px] sm:min-h-[320px] overflow-visible block cursor-pointer"
+                    style={{ backgroundColor: product.backgroundColor || '#F1B213' }}
+                  >
+                    {/* Product Image */}
+                    <div
+                      className={`absolute left-1/2 transform -translate-x-1/2 z-10 ${
+                        product.category === "Combo"
+                          ? "top-[-5px] sm:top-[-30px]"
+                          : "-top-28 sm:-top-36"
+                      }`}
+                    >
+                      <img
+                        src={product.images?.[0] || ''}
+                        alt={product.name}
+                        className={`max-w-none mx-auto transform transition-transform duration-500 hover:-rotate-12 ${
+                          product.category === "Combo" && index === 0
+                            ? "w-[230px] h-[250px] sm:w-[350px] sm:h-[280px] -mt-8 object-contain"
+                            : product.category === "Combo"
+                            ? "w-[200px] sm:w-[250px] h-auto"
+                            : "w-[300px] mt-8 sm:mt-0 sm:w-[420px] h-auto"
+                        }`}
+                      />
+                    </div>
+
+                    {/* Details */}
+                    <div className="mt-2 flex flex-col justify-end text-left text-white h-full">
+                      <h3 className="font-suez text-sm sm:text-lg md:text-3xl mb-1 line-clamp-2">
+                        {product.name}
+                      </h3>
+                      <p className="font-jost text-sm">{product.weight}g</p>
+                      <p className="font-suez text-lg">₹{product.price}</p>
+                      {product.stock === 0 && (
+                        <span className="inline-block mt-2 bg-red-600 text-white text-xs font-semibold px-3 py-1 rounded-full w-fit">
+                          OUT OF STOCK
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Cart */}
+                    <button
+                      className={`absolute -bottom-4 -right-4 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition ${
+                        product.stock > 0
+                          ? 'bg-[#FCEB81] hover:scale-110'
+                          : 'bg-gray-400 cursor-not-allowed opacity-60'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        product.stock > 0 && handleAddRecommendedProduct(product);
+                      }}
+                      disabled={product.stock === 0}
+                      title={product.stock > 0 ? 'Add to cart' : 'Out of stock'}
+                    >
+                      <ShoppingCart size={20} className="text-gray-800" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Mobile Layout */}
@@ -754,10 +884,72 @@ const CartPage = () => {
             </div>
           </div>
 
+          {/* Recommended Products - Mobile */}
+          {!deliveryStatus.isFree && recommendedProducts.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-xl font-bold mb-2 text-black font-suez">
+                {deliveryStatus.deliveryCharge === 50 ? '🎯 Add for FREE Delivery' : '✨ Unlock Offers'}
+              </h2>
+              <p className="text-xs font-jost text-gray-600 mb-6">
+                {deliveryStatus.deliveryCharge === 50
+                  ? `₹${FREE_DELIVERY_THRESHOLD - subtotal} more for FREE delivery!`
+                  : `₹${REDUCED_DELIVERY_THRESHOLD - subtotal} for ₹50 delivery`
+                }
+              </p>
+
+              <div className="grid grid-cols-2 gap-x-3 gap-y-10 mt-12">
+                {recommendedProducts.slice(0, 4).map((product) => (
+                  <div
+                    key={product._id}
+                    className="relative rounded-3xl p-4 shadow-md min-h-[200px] overflow-visible cursor-pointer"
+                    style={{ backgroundColor: product.backgroundColor || '#F1B213' }}
+                    onClick={() => navigate(`/product/${product._id}`)}
+                  >
+                    {/* Product Image - Elevated */}
+                    <div className="absolute left-1/2 transform -translate-x-1/2 -top-16 z-10">
+                      <img
+                        src={product.images?.[0] || ''}
+                        alt={product.name}
+                        className="w-[180px] h-auto max-w-none mx-auto"
+                      />
+                    </div>
+
+                    {/* Product Details */}
+                    <div className="mt-2 flex flex-col justify-end text-left text-white h-full">
+                      <h3 className="font-suez text-xs mb-1 line-clamp-2">
+                        {product.name}
+                      </h3>
+                      <p className="font-jost text-xs">{product.weight}g</p>
+                      <p className="font-suez text-sm">₹{product.price}</p>
+                    </div>
+
+                    {/* Add to Cart Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddRecommendedProduct(product);
+                      }}
+                      disabled={product.stock === 0}
+                      className={`absolute -bottom-3 -right-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition ${
+                        product.stock > 0
+                          ? 'bg-[#FCEB81] hover:scale-110'
+                          : 'bg-gray-400 cursor-not-allowed opacity-60'
+                      }`}
+                      title={product.stock > 0 ? 'Add to cart' : 'Out of stock'}
+                    >
+                      <ShoppingCart size={16} className="text-gray-800" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Order Summary */}
           <div className="bg-white p-4 rounded-lg border border-black mb-6">
             <h3 className="text-xl font-bold mb-4 font-suez">Order Summary</h3>
-            
+
             {cartItems.map((item) => (
               <div key={`mobile-summary-${item.productId}`} className="flex justify-between mb-2">
                 <span className="text-sm font-suez">×{item.quantity} {item.name}</span>
