@@ -52,6 +52,8 @@ import paymentRoutes from './routes/payment.js';
 import uploadRoutes from './routes/upload.js';
 import couponRoutes from './routes/coupons.js';
 import shippingRoutes from './routes/shipping.js';
+import reviewRoutes from './routes/reviews.js';
+import dealershipRoutes from './routes/dealership.js';
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -63,6 +65,8 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/shipping', shippingRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/dealership', dealershipRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -86,7 +90,9 @@ app.get('/', (req, res) => {
       wishlist: '/api/wishlist',
       orders: '/api/orders',
       payment: '/api/payment',
-      shipping: '/api/shipping'
+      shipping: '/api/shipping',
+      reviews: '/api/reviews',
+      dealership: '/api/dealership'
     }
   });
 });

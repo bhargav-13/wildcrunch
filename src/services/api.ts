@@ -170,6 +170,29 @@ export const shippingAPI = {
     api.post('/shipping/cancel', { awbNumbers }),
 };
 
+// Reviews API
+export const reviewsAPI = {
+  // Get all reviews for a product
+  getByProduct: (productId: string, params?: { sort?: string; page?: number; limit?: number }) =>
+    api.get(`/reviews/${productId}`, { params }),
+
+  // Create a review
+  create: (productId: string, data: { name: string; rating: number; comment: string }) =>
+    api.post(`/reviews/${productId}`, data),
+
+  // Update a review
+  update: (reviewId: string, data: { rating?: number; comment?: string }) =>
+    api.put(`/reviews/${reviewId}`, data),
+
+  // Delete a review
+  delete: (reviewId: string) =>
+    api.delete(`/reviews/${reviewId}`),
+
+  // Mark review as helpful/unhelpful
+  markHelpful: (reviewId: string, helpful: boolean) =>
+    api.post(`/reviews/${reviewId}/helpful`, { helpful }),
+};
+
 // Orders API
 export const ordersAPI = {
   // Calculate shipping for cart
@@ -228,6 +251,13 @@ export const ordersAPI = {
 
   updateStatus: (id: string, orderStatus: string) =>
     api.put(`/orders/${id}/status`, { orderStatus }),
+};
+
+// Dealership API
+export const dealershipAPI = {
+  // Submit dealership form
+  submitForm: (data: any) =>
+    api.post('/dealership/submit', data),
 };
 
 // Health check

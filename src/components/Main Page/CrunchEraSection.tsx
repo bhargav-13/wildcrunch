@@ -194,94 +194,93 @@ const CrunchEraSection = () => {
           className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-12 xl:gap-x-16 gap-y-24 sm:gap-y-48 max-w-7xl mx-auto mt-24 sm:mt-48"
         >
           {products.map((product, index) => (
-            <motion.div
-              key={index}
-              variants={cardVariants}
-              whileHover={{ 
-                scale: 1.05,
-                rotateY: 10,
-                boxShadow: "0 25px 50px rgba(0,0,0,0.2)",
-                transition: { 
-                  type: "spring" as const,
-                  damping: 15,
-                  stiffness: 200
-                }
-              }}
-              whileTap={{ 
-                scale: 0.95,
-                transition: { duration: 0.2 }
-              }}
-              className={`${product.bgColor} rounded-3xl p-3 sm:p-6 relative min-h-[200px] sm:min-h-[100px] overflow-visible cursor-pointer`}
-              style={{ marginLeft: '0.5rem', marginRight: '0.5rem' }}
-            >
-              <div className="flex flex-col h-full">
-                {/* Product Image */}
-                <div className="text-center mb-[-10px] flex-shrink-0 -mt-24 sm:-mt-48">
-                  <motion.img
-                    variants={imageVariants}
-                    src={product.imageSrc}
-                    alt={product.name.join(" ")}
-                    className={`max-w-none ${index === 5 ? 'w-[120px] sm:w-[330px] mt-16' : 'w-[160px] sm:w-[400px]'} h-auto mx-auto`}
-                    whileHover={{
-                      rotate: -15,
-                      scale: 1.1,
-                      transition: { 
-                        type: "spring" as const,
-                        damping: 10,
-                        stiffness: 200
-                      }
-                    }}
-                    animate={{
-                      y: [0, -8, 0],
-                      transition: {
-                        y: {
-                          repeat: Infinity,
-                          duration: 3 + index * 0.5,
-                          ease: "easeInOut"
+            <Link key={index} to="/products" className="block">
+              <motion.div
+                variants={cardVariants}
+                whileHover={{
+                  scale: 1.05,
+                  rotateY: 10,
+                  boxShadow: "0 25px 50px rgba(0,0,0,0.2)",
+                  transition: {
+                    type: "spring" as const,
+                    damping: 15,
+                    stiffness: 200
+                  }
+                }}
+                whileTap={{
+                  scale: 0.95,
+                  transition: { duration: 0.2 }
+                }}
+                className={`${product.bgColor} rounded-3xl p-3 sm:p-6 relative min-h-[200px] sm:min-h-[100px] overflow-visible cursor-pointer`}
+                style={{ marginLeft: '0.5rem', marginRight: '0.5rem' }}
+              >
+                <div className="flex flex-col h-full">
+                  {/* Product Image */}
+                  <div className="text-center mb-[-10px] flex-shrink-0 -mt-24 sm:-mt-48">
+                    <motion.img
+                      variants={imageVariants}
+                      src={product.imageSrc}
+                      alt={product.name.join(" ")}
+                      className={`max-w-none ${index === 5 ? 'w-[120px] sm:w-[330px] mt-16' : 'w-[160px] sm:w-[400px]'} h-auto mx-auto`}
+                      whileHover={{
+                        rotate: -15,
+                        scale: 1.1,
+                        transition: {
+                          type: "spring" as const,
+                          damping: 10,
+                          stiffness: 200
                         }
-                      }
-                    }}
-                  />
+                      }}
+                      animate={{
+                        y: [0, -8, 0],
+                        transition: {
+                          y: {
+                            repeat: Infinity,
+                            duration: 3 + index * 0.5,
+                            ease: "easeInOut"
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Product Details */}
+                  <div className="flex-grow flex flex-col justify-end text-white text-left">
+                    <motion.h3
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + index * 0.1, duration: 0.6 }}
+                      className="font-suez text-base sm:text-4xl md:text-5xl mb-2 sm:mb-3 uppercase tracking-wide leading-tight"
+                    >
+                      {product.name.map((line, i) => (
+                        <motion.span
+                          key={i}
+                          className="block"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.7 + index * 0.1 + i * 0.1, duration: 0.5 }}
+                        >
+                          {line}
+                        </motion.span>
+                      ))}
+                    </motion.h3>
+                    <motion.p
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.9 + index * 0.1, duration: 0.6 }}
+                      className="font-jost text-[8px] sm:text-xs leading-relaxed uppercase"
+                    >
+                      {product.description}
+                    </motion.p>
+                  </div>
                 </div>
 
-                {/* Product Details */}
-                <div className="flex-grow flex flex-col justify-end text-white text-left">
-                  <motion.h3 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 + index * 0.1, duration: 0.6 }}
-                    className="font-suez text-base sm:text-4xl md:text-5xl mb-2 sm:mb-3 uppercase tracking-wide leading-tight"
-                  >
-                    {product.name.map((line, i) => (
-                      <motion.span 
-                        key={i} 
-                        className="block"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.7 + index * 0.1 + i * 0.1, duration: 0.5 }}
-                      >
-                        {line}
-                      </motion.span>
-                    ))}
-                  </motion.h3>
-                  <motion.p 
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.9 + index * 0.1, duration: 0.6 }}
-                    className="font-jost text-[8px] sm:text-xs leading-relaxed uppercase"
-                  >
-                    {product.description}
-                  </motion.p>
-                </div>
-              </div>
-
-              {/* Arrow Button */}
-              <Link to="/products">
-                <motion.div 
+                {/* Arrow Button */}
+                <motion.div
                   initial={{ opacity: 0, scale: 0, rotate: -180 }}
                   animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                  transition={{ 
-                    delay: 1.2 + index * 0.1, 
+                  transition={{
+                    delay: 1.2 + index * 0.1,
                     type: "spring" as const,
                     damping: 15,
                     stiffness: 200
@@ -317,8 +316,8 @@ const CrunchEraSection = () => {
                     />
                   </motion.svg>
                 </motion.div>
-              </Link>
-            </motion.div>
+              </motion.div>
+            </Link>
           ))}
         </motion.div>
         

@@ -476,7 +476,7 @@ const InProduct = () => {
       <div className="flex flex-col items-center gap-2 text-center">
         <span>Made with Multigrams</span>
         <span className="border-t border-dashed border-white w-20 sm:w-28"></span>
-        <span>Fried Not Baked</span>
+        <span>Baked Not Fried</span>
       </div>
       <div className="border-l border-dashed border-white h-14"></div>
       <div className="flex flex-col items-center gap-2 text-center">
@@ -560,7 +560,7 @@ const InProduct = () => {
                   <div className="flex items-center justify-start text-white font-suez gap-4 pl-4 flex-wrap">
                     <span>Made with Multigrams</span>
                     <span className="border-l border-dashed border-white h-8 hidden sm:block"></span>
-                    <span>Fried Not Baked</span>
+                    <span>Baked Not Fried</span>
                   </div>
                   <div className="border-t border-dashed border-white"></div>
                   <div className="flex items-center justify-start text-white font-suez gap-4 pl-4 flex-wrap">
@@ -822,7 +822,7 @@ const InProduct = () => {
 
       {/* Imported sections - now outside the padding container */}
       <Special />
-      <Review />
+      <Review productId={selectedProduct?.id || selectedProduct?._id || ''} />
       <Others />
       <Footer />
     </div>
