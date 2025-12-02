@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Heart, ShoppingCart, Search, Filter } from "lucide-react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useProducts } from "@/hooks/useProducts";
 import { useCart } from "@/contexts/CartContext";
@@ -21,6 +21,7 @@ const getColorForCategory = (category: string) => {
 };
 
 const Products = () => {
+  const { category: urlCategory } = useParams<{ category: string }>();
   const [selectedCategory, setSelectedCategory] = useState("All Products");
   const [searchTerm, setSearchTerm] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -44,6 +45,17 @@ const Products = () => {
     };
     fetchCategories();
   }, []);
+
+  // Sync selected category with URL parameter
+  useEffect(() => {
+    if (urlCategory) {
+      // Decode URL parameter and convert to display format
+      const decodedCategory = decodeURIComponent(urlCategory);
+      setSelectedCategory(decodedCategory);
+    } else {
+      setSelectedCategory("All Products");
+    }
+  }, [urlCategory]);
 
   // Fetch products from backend
   const { products: apiProducts, loading, error } = useProducts({
@@ -105,6 +117,14 @@ const Products = () => {
     toast.error('Wishlist feature is not available');
   };
 
+  const handleCategoryClick = (category: string) => {
+    if (category === "All Products") {
+      navigate('/products');
+    } else {
+      navigate(`/products/${encodeURIComponent(category)}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8F7E5]">
       <div className="container mx-auto px-4 sm:px-12 py-8 flex gap-8">
@@ -116,7 +136,7 @@ const Products = () => {
             {categories.map((cat) => (
               <li
                 key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => handleCategoryClick(cat)}
                 className={`cursor-pointer font-suez text-lg ${
                   selectedCategory === cat ? "text-[#DD815C]" : "text-[#212121]"
                 }`}
@@ -182,7 +202,7 @@ const Products = () => {
                     <li
                       key={cat}
                       onClick={() => {
-                        setSelectedCategory(cat);
+                        handleCategoryClick(cat);
                         setIsFilterOpen(false); // close after selecting
                       }}
                       className={`cursor-pointer font-suez text-lg ${
