@@ -27,7 +27,7 @@ function AnimatedRoutes() {
         <Route path="/" element={<Index />} />
         <Route path="/our-story" element={<OurStory />} />
         <Route path="/products" element={<Products />} />
-        <Route path="/products/:category" element={<Products />} /> {/* category route */}
+        <Route path="/collection/:category" element={<Products />} /> {/* category route */}
         <Route path="/product/:id" element={<InProduct />} /> {/* dynamic route */}
         <Route path="/dealerships" element={<Dealerships />} />
         <Route path="/contact" element={<Contact />} />

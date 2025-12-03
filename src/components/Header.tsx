@@ -69,7 +69,7 @@ const Header = () => {
   const menuItems = [
     { name: "Home", path: "/" },
     { name: "Our Story", path: "/our-story" },
-    { name: "Shop", path: "/products" },
+    { name: "Shop", path: "/collection/shop-all" },
     { name: "Cart", path: "/cart" },
     { name: "Contact Us", path: "/contact" },
     { name: "Dealerships", path: "/dealerships" },

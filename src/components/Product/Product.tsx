@@ -51,7 +51,12 @@ const Products = () => {
     if (urlCategory) {
       // Decode URL parameter and convert to display format
       const decodedCategory = decodeURIComponent(urlCategory);
-      setSelectedCategory(decodedCategory);
+      // Handle 'shop-all' as "All Products"
+      if (decodedCategory === 'shop-all') {
+        setSelectedCategory("All Products");
+      } else {
+        setSelectedCategory(decodedCategory);
+      }
     } else {
       setSelectedCategory("All Products");
     }
@@ -119,9 +124,9 @@ const Products = () => {
 
   const handleCategoryClick = (category: string) => {
     if (category === "All Products") {
-      navigate('/products');
+      navigate('/collection/shop-all');
     } else {
-      navigate(`/products/${encodeURIComponent(category)}`);
+      navigate(`/collection/${encodeURIComponent(category)}`);
     }
   };
 
