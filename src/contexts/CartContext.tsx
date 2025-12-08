@@ -30,6 +30,8 @@ interface CartContextType {
   cartItems: CartItem[];
   totalItems: number;
   totalPrice: number;
+  cartSidebarOpen: boolean;
+  setCartSidebarOpen: (open: boolean) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -47,6 +49,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
 
   // Load cart from localStorage on mount
   const loadCart = () => {
@@ -125,6 +128,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       };
 
       saveCart(updatedCart);
+
+      // Automatically open the cart sidebar when item is added
+      setCartSidebarOpen(true);
+
       return { success: true, data: updatedCart };
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to add to cart';
@@ -235,6 +242,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     cartItems: cart?.items || [],
     totalItems: cart?.totalItems || 0,
     totalPrice: cart?.totalPrice || 0,
+    cartSidebarOpen,
+    setCartSidebarOpen,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

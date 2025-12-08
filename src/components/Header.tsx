@@ -15,13 +15,12 @@ const images = [img1, img2, img3, img4];
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [pathData, setPathData] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const { totalItems } = useCart();
+  const { totalItems, cartSidebarOpen, setCartSidebarOpen } = useCart();
 
   // Generate ECG path only once when component mounts
   useEffect(() => {
@@ -104,7 +103,7 @@ const Header = () => {
               {/* Cart button - Always visible for guest checkout */}
               <Button
                 className="relative flex items-center gap-1.5 bg-[#F1B213] text-white px-3 sm:px-5 py-1.5 rounded-full text-xs font-semibold hover:bg-[#F8F7E5] hover:text-black"
-                onClick={() => setCartOpen(true)}
+                onClick={() => setCartSidebarOpen(true)}
               >
                 <ShoppingCart className="h-5 w-5" />
                 <span className="font-sfpro hidden sm:inline">CART</span>
@@ -280,7 +279,7 @@ const Header = () => {
       </AnimatePresence>
 
       {/* Cart Sidebar - Pass props to Cart component */}
-      <Cart isOpen={cartOpen} onClose={() => setCartOpen(false)} />
+      <Cart isOpen={cartSidebarOpen} onClose={() => setCartSidebarOpen(false)} />
     </>
   );
 };
