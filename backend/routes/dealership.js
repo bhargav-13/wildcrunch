@@ -1,9 +1,15 @@
 import express from 'express';
 import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
 const router = express.Router();
 
-// Create transporter for sending emails
+// Initialize SendGrid if API key is available
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
+
+// Create transporter for sending emails (fallback to SMTP)
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -72,18 +78,24 @@ router.post('/submit', async (req, res) => {
       });
     }
 
-    // Create transporter
-    const transporter = createTransporter();
+    // Determine email sending method
+    const useSendGrid = !!process.env.SENDGRID_API_KEY;
+    let emailAvailable = false;
 
-    // Check if SMTP is available
-    let smtpAvailable = false;
-    try {
-      await transporter.verify();
-      console.log('SMTP server connection verified successfully');
-      smtpAvailable = true;
-    } catch (verifyError) {
-      console.error('SMTP verification failed:', verifyError);
-      console.log('Continuing without email - form data will be saved but emails will not be sent');
+    if (!useSendGrid) {
+      // Check if SMTP is available (fallback)
+      const transporter = createTransporter();
+      try {
+        await transporter.verify();
+        console.log('SMTP server connection verified successfully');
+        emailAvailable = true;
+      } catch (verifyError) {
+        console.error('SMTP verification failed:', verifyError);
+        console.log('Continuing without email - form data will be saved but emails will not be sent');
+      }
+    } else {
+      emailAvailable = true;
+      console.log('Using SendGrid API for email sending');
     }
 
     // Email to admin (care@wildcrunch.in)
@@ -200,37 +212,60 @@ router.post('/submit', async (req, res) => {
       </html>
     `;
 
-    // Send emails only if SMTP is available
-    if (smtpAvailable) {
+    // Send emails if available
+    if (emailAvailable) {
       try {
-        // Send email to admin
-        await transporter.sendMail({
-          from: `"Wild Crunch Dealership" <${process.env.SMTP_EMAIL}>`,
-          to: process.env.ADMIN_EMAIL || 'care@wildcrunch.in',
-          subject: `New Dealership Application - ${firstName} ${lastName}`,
-          html: adminEmailHTML,
-        });
+        if (useSendGrid) {
+          // Use SendGrid API
+          const fromEmail = process.env.SENDGRID_FROM_EMAIL || process.env.SMTP_EMAIL || 'noreply@wildcrunch.in';
 
-        // Send confirmation email to user
-        await transporter.sendMail({
-          from: `"Wild Crunch" <${process.env.SMTP_EMAIL}>`,
-          to: email,
-          subject: 'Thank You for Your Interest in Wild Crunch Dealership',
-          html: userEmailHTML,
-        });
+          await sgMail.send([
+            {
+              to: process.env.ADMIN_EMAIL || 'care@wildcrunch.in',
+              from: fromEmail,
+              subject: `New Dealership Application - ${firstName} ${lastName}`,
+              html: adminEmailHTML,
+            },
+            {
+              to: email,
+              from: fromEmail,
+              subject: 'Thank You for Your Interest in Wild Crunch Dealership',
+              html: userEmailHTML,
+            }
+          ]);
 
-        console.log('Emails sent successfully');
+          console.log('Emails sent successfully via SendGrid');
+        } else {
+          // Use SMTP
+          const transporter = createTransporter();
+
+          await transporter.sendMail({
+            from: `"Wild Crunch Dealership" <${process.env.SMTP_EMAIL}>`,
+            to: process.env.ADMIN_EMAIL || 'care@wildcrunch.in',
+            subject: `New Dealership Application - ${firstName} ${lastName}`,
+            html: adminEmailHTML,
+          });
+
+          await transporter.sendMail({
+            from: `"Wild Crunch" <${process.env.SMTP_EMAIL}>`,
+            to: email,
+            subject: 'Thank You for Your Interest in Wild Crunch Dealership',
+            html: userEmailHTML,
+          });
+
+          console.log('Emails sent successfully via SMTP');
+        }
       } catch (emailError) {
         console.error('Failed to send emails:', emailError);
         // Don't throw error - form submission should still succeed
       }
     } else {
-      console.log('Skipping email sending - SMTP not available');
+      console.log('Skipping email sending - no email service available');
     }
 
     res.status(200).json({
       success: true,
-      message: smtpAvailable
+      message: emailAvailable
         ? 'Application submitted successfully! Check your email for confirmation.'
         : 'Application submitted successfully! We will contact you soon.'
     });
