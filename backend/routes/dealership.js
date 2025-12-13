@@ -7,12 +7,24 @@ const router = express.Router();
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: process.env.SMTP_PORT || 587,
+    port: parseInt(process.env.SMTP_PORT) || 587,
     secure: false,
     auth: {
       user: process.env.SMTP_EMAIL,
       pass: process.env.SMTP_PASSWORD,
     },
+    tls: {
+      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2'
+    },
+    connectionTimeout: 10000,
+    socketTimeout: 10000,
+    greetingTimeout: 5000,
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 10,
+    debug: process.env.NODE_ENV === 'development',
+    logger: process.env.NODE_ENV === 'development'
   });
 };
 
@@ -62,6 +74,17 @@ router.post('/submit', async (req, res) => {
 
     // Create transporter
     const transporter = createTransporter();
+
+    // Check if SMTP is available
+    let smtpAvailable = false;
+    try {
+      await transporter.verify();
+      console.log('SMTP server connection verified successfully');
+      smtpAvailable = true;
+    } catch (verifyError) {
+      console.error('SMTP verification failed:', verifyError);
+      console.log('Continuing without email - form data will be saved but emails will not be sent');
+    }
 
     // Email to admin (care@wildcrunch.in)
     const adminEmailHTML = `
@@ -177,33 +200,60 @@ router.post('/submit', async (req, res) => {
       </html>
     `;
 
-    // Send email to admin
-    await transporter.sendMail({
-      from: `"Wild Crunch Dealership" <${process.env.SMTP_EMAIL}>`,
-      to: process.env.ADMIN_EMAIL || 'care@wildcrunch.in',
-      subject: `New Dealership Application - ${firstName} ${lastName}`,
-      html: adminEmailHTML,
-    });
+    // Send emails only if SMTP is available
+    if (smtpAvailable) {
+      try {
+        // Send email to admin
+        await transporter.sendMail({
+          from: `"Wild Crunch Dealership" <${process.env.SMTP_EMAIL}>`,
+          to: process.env.ADMIN_EMAIL || 'care@wildcrunch.in',
+          subject: `New Dealership Application - ${firstName} ${lastName}`,
+          html: adminEmailHTML,
+        });
 
-    // Send confirmation email to user
-    await transporter.sendMail({
-      from: `"Wild Crunch" <${process.env.SMTP_EMAIL}>`,
-      to: email,
-      subject: 'Thank You for Your Interest in Wild Crunch Dealership',
-      html: userEmailHTML,
-    });
+        // Send confirmation email to user
+        await transporter.sendMail({
+          from: `"Wild Crunch" <${process.env.SMTP_EMAIL}>`,
+          to: email,
+          subject: 'Thank You for Your Interest in Wild Crunch Dealership',
+          html: userEmailHTML,
+        });
+
+        console.log('Emails sent successfully');
+      } catch (emailError) {
+        console.error('Failed to send emails:', emailError);
+        // Don't throw error - form submission should still succeed
+      }
+    } else {
+      console.log('Skipping email sending - SMTP not available');
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Application submitted successfully! Check your email for confirmation.'
+      message: smtpAvailable
+        ? 'Application submitted successfully! Check your email for confirmation.'
+        : 'Application submitted successfully! We will contact you soon.'
     });
 
   } catch (error) {
     console.error('Dealership form submission error:', error);
+
+    // Provide more specific error messages based on error type
+    let errorMessage = 'Failed to submit application. Please try again later.';
+
+    if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION') {
+      errorMessage = 'Email service temporarily unavailable. Please try again in a few minutes.';
+    } else if (error.code === 'EAUTH') {
+      errorMessage = 'Email configuration error. Please contact support.';
+      console.error('SMTP Authentication failed - check SMTP credentials in production env vars');
+    } else if (error.responseCode >= 500) {
+      errorMessage = 'Email server error. Please try again later.';
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Failed to submit application. Please try again later.',
-      error: error.message
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
