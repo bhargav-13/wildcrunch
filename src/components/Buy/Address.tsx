@@ -72,7 +72,7 @@ const AddressPage = () => {
 
       if (response.data.success && response.data.serviceable) {
         setPincodeServiceable(true);
-        setShippingRate(response.data.shippingPrice || 60);
+        setShippingRate(response.data.shippingPrice ?? 60);
 
         // Set expected delivery date
         let deliveryDate = null;
@@ -204,7 +204,7 @@ const AddressPage = () => {
   });
 
   const subtotal = order?.itemsPrice || 0;
-  const deliveryCharge = shippingRate || order?.shippingPrice || 60;
+  const deliveryCharge = (shippingRate ?? order?.shippingPrice ?? 60);
   const total = subtotal + deliveryCharge;
 
   // Progress steps
@@ -556,7 +556,7 @@ const AddressPage = () => {
                 </div>
 
                 {/* Expected Delivery Date */}
-                {expectedDeliveryDate && shippingRate && (
+                {expectedDeliveryDate && (shippingRate ?? null) !== null && (
                   <div className="mt-4 lg:mt-6 bg-green-50 border border-green-200 rounded-lg p-3 lg:p-4">
                     <div className="flex items-center gap-2 mb-1">
                       <Calendar className="w-4 h-4 text-green-600" />

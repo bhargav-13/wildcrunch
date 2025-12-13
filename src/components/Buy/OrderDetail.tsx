@@ -182,8 +182,8 @@ const OrderDetailPage = () => {
   };
 
   const subtotal = order.itemsPrice || 0;
-  const shipping = order.shippingPrice || 60;
-  const total = order.totalPrice || 0;
+  const shipping = order.shippingPrice ?? 60;
+  const total = order.totalPrice || (subtotal + (shipping ?? 0));
 
   return (
     <div className="min-h-screen bg-[#F8F7E5] font-jost">

@@ -33,7 +33,7 @@ const ConfirmPage = () => {
   const [message, setMessage] = useState('');
 
   const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const deliveryCharge = 60;
+  const deliveryCharge = 0;
   const total = subtotal + deliveryCharge;
 
   // Progress steps

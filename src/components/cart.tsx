@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import products from "@/data/product";
+import { useProducts } from "@/hooks/useProducts";
 
 interface CartProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface CartProps {
 const Cart = ({ isOpen, onClose }: CartProps) => {
   const navigate = useNavigate();
   const { cartItems, totalPrice, totalItems, updateQuantity, removeFromCart, addToCart } = useCart();
+  const { products: fetchedProducts, loading: productsLoading } = useProducts({ limit: 12 });
 
   // Use cart items directly from backend (already has images)
   const enhancedCartItems = cartItems.map((item: any) => {
@@ -91,14 +93,14 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
 
   const handleAddRecommendedProduct = async (product: any) => {
     try {
-      const priceNumeric = parseInt(product.price.replace(/[^0-9]/g, ''));
+      const priceNumeric = (product.priceNumeric ?? (parseInt((product.priceLabel || '').replace(/[^0-9]/g, '')) || 0));
       await addToCart(
         product.id,
         1,
         '1',
         priceNumeric,
         product.name,
-        product.price,
+        product.priceLabel || `₹${priceNumeric}`,
         priceNumeric,
         product.imageSrc,
         product.weight
@@ -109,10 +111,31 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
     }
   };
 
-  // Get recommended products (filter out items already in cart)
-  const recommendedProducts = products
-    .filter(product => !cartItems.some(item => item.productId === product.id))
-    .slice(0, 6);
+  // Normalize backend products to match display needs
+  const normalizedBackendProducts = (fetchedProducts || []).map((product: any) => {
+    const priceNumeric =
+      product?.pricing?.individual?.price ??
+      product?.priceNumeric ??
+      product?.price ??
+      0;
+
+    return {
+      id: product._id || product.id,
+      _id: product._id,
+      name: product.name,
+      priceNumeric,
+      priceLabel: `₹${priceNumeric}`,
+      imageSrc: product.images?.[0] || product.imageSrc || '',
+      weight: product.weight ? `${product.weight}g` : product.weightLabel || '',
+    };
+  });
+
+  // Always use backend products if available, never fallback to local seed data for recommendations
+  const recommendedProducts = normalizedBackendProducts.length > 0
+    ? normalizedBackendProducts
+        .filter(product => !cartItems.some(item => item.productId === product._id || item.productId === product.id))
+        .slice(0, 6)
+    : [];
 
   return (
     <AnimatePresence>
@@ -255,31 +278,31 @@ const Cart = ({ isOpen, onClose }: CartProps) => {
                     <motion.div
                       key={product.id}
                       whileHover={{ scale: 1.02 }}
-                      className="flex-shrink-0 w-[100px] bg-white border-2 border-black rounded-md overflow-hidden shadow-sm cursor-pointer"
+                      className="flex-shrink-0 w-[110px] bg-white border-2 border-black rounded-md overflow-hidden shadow-sm cursor-pointer flex flex-col"
                     >
                       {/* Product Image */}
-                      <div className="relative h-[80px] bg-gray-50 border-b-2 border-black overflow-hidden">
+                      <div className="relative h-[90px] bg-gray-50 border-b-2 border-black flex items-center justify-center overflow-hidden">
                         <img
                           src={product.imageSrc}
                           alt={product.name}
-                          className="w-full h-full object-cover"
+                          className="max-h-full max-w-full object-contain"
                         />
                       </div>
 
                       {/* Product Info */}
-                      <div className="p-1.5">
-                        <h4 className="font-suez text-[10px] font-bold text-black line-clamp-2 mb-0.5 h-7 leading-tight">
+                      <div className="p-2 flex flex-col items-center text-center gap-1">
+                        <h4 className="font-suez text-[11px] font-bold text-black leading-tight min-h-[34px] flex items-center justify-center">
                           {product.name}
                         </h4>
 
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-1 w-full">
                           <span className="font-suez text-xs font-bold text-black">
-                            {product.price}
+                            {product.priceLabel}
                           </span>
 
                           <button
                             onClick={() => handleAddRecommendedProduct(product)}
-                            className="w-full bg-[#F1B213] text-white px-1.5 py-1 rounded text-[9px] font-suez font-bold hover:bg-[#E5A612] active:scale-95 transition-all"
+                            className="w-full bg-[#F1B213] text-white px-1.5 py-1 rounded text-[10px] font-suez font-bold hover:bg-[#E5A612] active:scale-95 transition-all"
                           >
                             ADD
                           </button>

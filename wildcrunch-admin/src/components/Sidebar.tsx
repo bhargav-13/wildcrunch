@@ -11,7 +11,9 @@ import {
   Tag,
   LogOut,
   Menu,
-  X
+  X,
+  Building2,
+  MessageSquare
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useState } from 'react';
@@ -23,6 +25,8 @@ const menuItems = [
   { icon: Users, label: 'Customers', href: '/dashboard/customers' },
   { icon: Tags, label: 'Categories', href: '/dashboard/categories' },
   { icon: Tag, label: 'Coupons', href: '/coupons' },
+  { icon: Building2, label: 'Dealerships', href: '/dashboard/dealerships' },
+  { icon: MessageSquare, label: 'Contact Forms', href: '/dashboard/contacts' },
 ];
 
 export default function Sidebar() {

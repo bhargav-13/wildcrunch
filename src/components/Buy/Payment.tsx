@@ -64,8 +64,8 @@ const PaymentPage = () => {
   });
 
   const subtotal = order?.itemsPrice || 0;
-  const deliveryCharge = order?.shippingPrice || 60;
-  const total = order?.totalPrice || 0;
+  const deliveryCharge = order?.shippingPrice ?? 60;
+  const total = order?.totalPrice ?? subtotal + (deliveryCharge ?? 0);
 
   const handlePayment = async () => {
     if (!order) {

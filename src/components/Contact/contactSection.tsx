@@ -1,21 +1,75 @@
 import React, { useState } from 'react';
 import { Phone, MessageCircle, Mail, Store } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
 const ContactSection = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     subject: '',
     message: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (successMessage) {
+      setSuccessMessage('');
+    }
   };
 
-  const handleSubmit = () => console.log('Contact form submitted:', formData);
+  const buildApiBaseUrl = () => {
+    const raw = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const normalized = raw.replace(/\/+$/, '');
+    const hasApiSegment = /\/api(\/|$)/.test(normalized);
+    return hasApiSegment ? normalized : `${normalized}/api`;
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.email || !formData.message) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${buildApiBaseUrl()}/contact/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message || 'Message sent successfully!');
+        setFormData({
+          name: '',
+          email: '',
+          phone: '',
+          subject: '',
+          message: ''
+        });
+        setSuccessMessage(data.message || 'Thanks! We received your message and will get back to you soon.');
+        setTimeout(() => setSuccessMessage(''), 7000);
+      } else {
+        toast.error(data.message || 'Failed to send message');
+        setSuccessMessage('');
+      }
+    } catch (error) {
+      console.error('Error submitting contact form:', error);
+      toast.error('Failed to send message. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const contactInfo = [
     { icon: <Phone className="w-8 h-8 sm:w-10 sm:h-10 text-black" />, title: "Phone", info: "+91 832 062 9091" },
@@ -96,7 +150,7 @@ const ContactSection = () => {
 
               {/* Contact Form */}
               <div className="space-y-6">
-                {['name', 'email', 'subject', 'message'].map((field, idx) => (
+                {['name', 'email', 'phone', 'subject', 'message'].map((field, idx) => (
                   <motion.div
                     key={field}
                     initial={{ opacity: 0, y: 30, scale: 0.95 }}
@@ -105,11 +159,11 @@ const ContactSection = () => {
                     transition={{ type: 'spring', stiffness: 90, damping: 12, delay: idx * 0.1 }}
                   >
                     <label className="block text-base sm:text-lg font-medium text-black mb-3 font-suez">
-                      {field.charAt(0).toUpperCase() + field.slice(1)}
+                      {field.charAt(0).toUpperCase() + field.slice(1)} {['name', 'email', 'message'].includes(field) && <span className="text-red-500">*</span>}
                     </label>
                     {field !== 'message' ? (
                       <input
-                        type={field === 'email' ? 'email' : 'text'}
+                        type={field === 'email' ? 'email' : field === 'phone' ? 'tel' : 'text'}
                         name={field}
                         placeholder={field === 'email' ? 'Wildcrunch@Gmail.Com' : 'Your ' + field.charAt(0).toUpperCase() + field.slice(1)}
                         value={formData[field as keyof typeof formData]}
@@ -144,11 +198,23 @@ const ContactSection = () => {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    className="w-full bg-[#DD815C] text-white py-2 sm:py-3 rounded-full text-lg sm:text-xl transition-all duration-300 font-jost"
+                    disabled={isSubmitting}
+                    className="w-full bg-[#DD815C] text-white py-2 sm:py-3 rounded-full text-lg sm:text-xl transition-all duration-300 font-jost disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Send Now
+                    {isSubmitting ? 'Sending...' : 'Send Now'}
                   </button>
                 </motion.div>
+
+                {successMessage && (
+                  <motion.div
+                    className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-green-800 font-jost text-base sm:text-lg"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    {successMessage}
+                  </motion.div>
+                )}
               </div>
             </motion.div>
           </div>
