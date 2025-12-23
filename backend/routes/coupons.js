@@ -1,13 +1,13 @@
 import express from 'express';
 import Coupon from '../models/Coupon.js';
-import { protect, admin } from '../middleware/auth.js';
+import { protect, admin, optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // @route   POST /api/coupons/validate
 // @desc    Validate a coupon code
-// @access  Private
-router.post('/validate', protect, async (req, res) => {
+// @access  Public (works for both guests and authenticated users)
+router.post('/validate', optionalAuth, async (req, res) => {
   try {
     const { code, cartTotal } = req.body;
 
@@ -37,13 +37,16 @@ router.post('/validate', protect, async (req, res) => {
       });
     }
 
-    // Check if user can use this coupon
-    const userCheck = coupon.canUserUseCoupon(req.user._id);
-    if (!userCheck.valid) {
-      return res.status(400).json({
-        success: false,
-        message: userCheck.message
-      });
+    // Check if user can use this coupon (only for authenticated users)
+    // Guest users are allowed to apply coupons
+    if (req.user) {
+      const userCheck = coupon.canUserUseCoupon(req.user._id);
+      if (!userCheck.valid) {
+        return res.status(400).json({
+          success: false,
+          message: userCheck.message
+        });
+      }
     }
 
     // Check minimum purchase requirement
@@ -81,8 +84,8 @@ router.post('/validate', protect, async (req, res) => {
 
 // @route   POST /api/coupons/apply
 // @desc    Mark coupon as used
-// @access  Private
-router.post('/apply', protect, async (req, res) => {
+// @access  Public (works for both guests and authenticated users)
+router.post('/apply', optionalAuth, async (req, res) => {
   try {
     const { couponId } = req.body;
 
@@ -98,18 +101,20 @@ router.post('/apply', protect, async (req, res) => {
     // Increment usage count
     coupon.usageCount += 1;
 
-    // Update user usage
-    const userUsageIndex = coupon.usedBy.findIndex(
-      u => u.user.toString() === req.user._id.toString()
-    );
+    // Update user usage only if user is authenticated
+    if (req.user) {
+      const userUsageIndex = coupon.usedBy.findIndex(
+        u => u.user.toString() === req.user._id.toString()
+      );
 
-    if (userUsageIndex >= 0) {
-      coupon.usedBy[userUsageIndex].usedCount += 1;
-    } else {
-      coupon.usedBy.push({
-        user: req.user._id,
-        usedCount: 1
-      });
+      if (userUsageIndex >= 0) {
+        coupon.usedBy[userUsageIndex].usedCount += 1;
+      } else {
+        coupon.usedBy.push({
+          user: req.user._id,
+          usedCount: 1
+        });
+      }
     }
 
     await coupon.save();
