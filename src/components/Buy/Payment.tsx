@@ -64,8 +64,9 @@ const PaymentPage = () => {
   });
 
   const subtotal = order?.itemsPrice || 0;
+  const couponDiscount = order?.coupon?.discount || 0;
   const deliveryCharge = order?.shippingPrice ?? 60;
-  const total = order?.totalPrice ?? subtotal + (deliveryCharge ?? 0);
+  const total = order?.totalPrice ?? (subtotal - couponDiscount + deliveryCharge);
 
   const handlePayment = async () => {
     if (!order) {
@@ -261,16 +262,27 @@ const PaymentPage = () => {
                   <span className="font-suez">Subtotal</span>
                   <span className="font-medium font-suez">₹{subtotal}.00</span>
                 </div>
-                
+
+                {/* Coupon Discount */}
+                {couponDiscount > 0 && (
+                  <>
+                    <div className="border-b border-dashed border-black my-4 lg:my-6"></div>
+                    <div className="flex justify-between items-center text-sm lg:text-lg text-green-600">
+                      <span className="font-suez">Coupon Discount ({order?.coupon?.code})</span>
+                      <span className="font-medium font-suez">-₹{Math.round(couponDiscount)}.00</span>
+                    </div>
+                  </>
+                )}
+
                 <div className="border-b border-dashed border-black my-4 lg:my-6"></div>
-                
+
                 <div className="flex justify-between items-center text-sm lg:text-lg">
                   <span className="font-suez">Delivery charge</span>
                   <span className="font-medium font-suez">₹{deliveryCharge}.00</span>
                 </div>
-                
+
                 <div className="border-b border-dashed border-black my-4 lg:my-6"></div>
-                
+
                 <div className="flex justify-between items-center text-lg lg:text-xl font-bold">
                   <span className="font-suez">Total:</span>
                   <span className="font-suez">₹{total}.00</span>

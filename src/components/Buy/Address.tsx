@@ -44,7 +44,32 @@ const AddressPage = () => {
         setLoading(true);
         const orderResponse = await ordersAPI.getById(orderId);
         if (orderResponse.data.success) {
-          setOrder(orderResponse.data.data);
+          const fetchedOrder = orderResponse.data.data;
+
+          // Debug: Log the order to see if coupon is present
+          console.log('📦 Fetched order:', fetchedOrder);
+          console.log('🎟️ Coupon in order:', fetchedOrder.coupon);
+
+          // If order doesn't have coupon but URL params do, add them to the order object
+          const couponCode = searchParams.get('couponCode');
+          const couponDiscount = searchParams.get('couponDiscount');
+
+          if (!fetchedOrder.coupon && couponCode && couponDiscount) {
+            console.log('⚠️ Order missing coupon, using URL params as fallback');
+            const discountValue = Math.round(parseFloat(couponDiscount));
+            fetchedOrder.coupon = {
+              code: couponCode,
+              discount: discountValue
+            };
+            console.log('✅ Applied coupon from URL:', fetchedOrder.coupon);
+          }
+
+          // Also ensure the coupon exists with proper rounding if it does exist
+          if (fetchedOrder.coupon && fetchedOrder.coupon.discount) {
+            fetchedOrder.coupon.discount = Math.round(fetchedOrder.coupon.discount);
+          }
+
+          setOrder(fetchedOrder);
         }
       } catch (error: any) {
         toast.error('Failed to fetch order data');
@@ -55,7 +80,7 @@ const AddressPage = () => {
     };
 
     fetchData();
-  }, [navigate, orderId]);
+  }, [navigate, orderId, searchParams]);
 
   // Check pincode serviceability and calculate shipping
   const checkPincodeServiceability = async (pincode: string) => {
@@ -204,8 +229,19 @@ const AddressPage = () => {
   });
 
   const subtotal = order?.itemsPrice || 0;
+  const couponDiscount = order?.coupon?.discount || 0;
   const deliveryCharge = (shippingRate ?? order?.shippingPrice ?? 60);
-  const total = subtotal + deliveryCharge;
+  const total = subtotal - couponDiscount + deliveryCharge;
+
+  // Debug logging
+  console.log('💰 Price calculation:', {
+    subtotal,
+    couponDiscount,
+    couponCode: order?.coupon?.code,
+    deliveryCharge,
+    total,
+    orderCoupon: order?.coupon
+  });
 
   // Progress steps
   const steps = [
@@ -515,6 +551,17 @@ const AddressPage = () => {
                   <span className="font-suez">Subtotal</span>
                   <span className="font-medium font-suez">₹{subtotal}.00</span>
                 </div>
+
+                {/* Coupon Discount */}
+                {couponDiscount > 0 && (
+                  <>
+                    <div className="border-b border-dashed border-black my-4 lg:my-6"></div>
+                    <div className="flex justify-between items-center text-sm lg:text-lg text-green-600">
+                      <span className="font-suez">Coupon Discount ({order?.coupon?.code})</span>
+                      <span className="font-medium font-suez">-₹{Math.round(couponDiscount)}.00</span>
+                    </div>
+                  </>
+                )}
 
                 <div className="border-b border-dashed border-black my-4 lg:my-6"></div>
 

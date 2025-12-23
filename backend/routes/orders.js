@@ -28,6 +28,7 @@ router.post('/guest/create', async (req, res) => {
 
   try {
     const { items, couponCode, couponDiscount } = req.body;
+    console.log('🎟️ Coupon data received:', { couponCode, couponDiscount });
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -73,6 +74,14 @@ router.post('/guest/create', async (req, res) => {
     const discount = couponDiscount || 0;
     const totalPrice = itemsPrice + shippingPrice - discount;
 
+    console.log('💰 Price breakdown:', {
+      itemsPrice,
+      shippingPrice,
+      couponDiscount,
+      discount,
+      totalPrice,
+      couponCode
+    });
     console.log(`💰 Creating Razorpay order for amount: ₹${totalPrice}`);
 
     // Create Razorpay order
@@ -103,6 +112,13 @@ router.post('/guest/create', async (req, res) => {
 
     console.log(`📝 Creating database order: ${orderNumber}`);
 
+    const couponData = couponCode ? {
+      code: couponCode,
+      discount: discount
+    } : undefined;
+
+    console.log('💾 Saving coupon to order:', couponData);
+
     // Create order with UNPAID status
     let order;
     try {
@@ -116,16 +132,14 @@ router.post('/guest/create', async (req, res) => {
         itemsPrice,
         shippingPrice,
         totalPrice,
-        coupon: couponCode ? {
-          code: couponCode,
-          discount: discount
-        } : undefined,
+        coupon: couponData,
         paymentDetails: {
           razorpayOrderId: razorpayOrder.id  // Save Razorpay order ID
         }
       });
 
       console.log(`✅ Order created successfully: ${order._id}`);
+      console.log('✅ Order coupon saved:', order.coupon);
     } catch (orderError) {
       console.error('❌ Database order creation failed:', orderError);
       return res.status(500).json({
@@ -503,11 +517,12 @@ router.put('/:id/address', async (req, res) => {
       }
     }
 
-    // Update shipping price and recalculate total
+    // Update shipping price and recalculate total (including coupon discount)
     order.shippingPrice = dynamicShippingPrice;
-    order.totalPrice = order.itemsPrice + dynamicShippingPrice;
+    const couponDiscount = order.coupon?.discount || 0;
+    order.totalPrice = order.itemsPrice + dynamicShippingPrice - couponDiscount;
 
-    console.log(`💰 Order totals updated - Items: ₹${order.itemsPrice}, Shipping: ₹${order.shippingPrice}, Total: ₹${order.totalPrice}`);
+    console.log(`💰 Order totals updated - Items: ₹${order.itemsPrice}, Shipping: ₹${order.shippingPrice}, Coupon Discount: ₹${couponDiscount}, Total: ₹${order.totalPrice}`);
 
     // Create new Razorpay order with updated amount
     try {
