@@ -1,55 +1,33 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
-import { Toaster } from "sonner";
-
-import Products from "./pages/Products";
-import InProduct from "./components/Product/Inproduct";
-import Index from "./pages/Index";
-import OurStory from "./pages/OurStory";
-import Dealerships from "./pages/Dealerships";
-import Contact from "./pages/Contact";
-import Cart from "./components/Buy/Cart";
-import PaymentPage from "./components/Buy/Payment";
-import ConfirmPage from "./components/Buy/Confirm";
-import NotFound from "./pages/NotFound";
-import AddressPage from "./components/Buy/Address";
-import OrderDetailPage from "./components/Buy/OrderDetail";
-import TrackOrder from "./pages/TrackOrder";
-import ScrollToTop from "./components/extra/ScrollTop";
-
-
-function AnimatedRoutes() {
-  const location = useLocation();
-
-  return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Index />} />
-        <Route path="/our-story" element={<OurStory />} />
-        <Route path="/products" element={<Products />} />
-        <Route path="/collection/:category" element={<Products />} /> {/* category route */}
-        <Route path="/product/:id" element={<InProduct />} /> {/* dynamic route */}
-        <Route path="/dealerships" element={<Dealerships />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/cart" element={<Cart/>} />
-        <Route path="/address" element={<AddressPage/>} />
-        <Route path="/payment" element={<PaymentPage/>} />
-        <Route path="/confirm" element={<ConfirmPage/>} />
-        <Route path="/order/:id" element={<OrderDetailPage/>} />
-        <Route path="/track-order" element={<TrackOrder/>} />
-        <Route path="*" element={<NotFound />} />
-
-      </Routes>
-    </AnimatePresence>
-  );
-}
-
 const App = () => (
-  <BrowserRouter>
-    <ScrollToTop />
-    <AnimatedRoutes />
-    <Toaster position="top-right" richColors />
-  </BrowserRouter>
+  <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-100 flex items-center justify-center px-4">
+    <div className="text-center max-w-md">
+      <div className="mb-8">
+        <svg
+          className="w-24 h-24 mx-auto text-amber-600"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+        </svg>
+      </div>
+      <h1 className="text-4xl font-bold text-amber-800 mb-4">
+        Under Maintenance
+      </h1>
+      
+    </div>
+  </div>
 );
 
 export default App;
